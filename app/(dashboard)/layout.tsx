@@ -87,7 +87,12 @@ export default function DashboardLayout({
     setShowLogoutConfirm(false);
   };
 
-  const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
+  const isActive = (href: string) => {
+    if (href === '/robots') {
+      return pathname === href || (pathname.startsWith(href + '/') && !pathname.startsWith('/robots/manage') && !pathname.startsWith('/robots/maps'));
+    }
+    return pathname === href || pathname.startsWith(href + '/');
+  };
 
   const menuItems = [
     {
