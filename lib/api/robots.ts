@@ -17,7 +17,7 @@ export async function getRobots(search?: string): Promise<ApiResult<Robot[]>> {
             SELECT device_id, device_name, device_code, company_id, active_map_id, 
                    robot_local_ip, robot_local_ssid, created_at, updated_at
             FROM m_device
-            WHERE 1=1
+            WHERE ((device_code LIKE 'TFRB%' OR device_code LIKE 'TFUI%') OR (device_name LIKE 'TFRB%' OR device_name LIKE 'TFUI%'))
         `;
 
         if (search?.trim()) {
@@ -90,6 +90,7 @@ export async function getRecentRobots(limit: number = 5): Promise<ApiResult<Robo
             `SELECT device_id, device_name, device_code, robot_local_ip, robot_local_ssid, 
                     company_id, active_map_id, created_at, updated_at
              FROM m_device
+             WHERE ((device_code LIKE 'TFRB%' OR device_code LIKE 'TFUI%') OR (device_name LIKE 'TFRB%' OR device_name LIKE 'TFUI%'))
              ORDER BY created_at DESC
              LIMIT $1`,
             [limit]
@@ -208,7 +209,7 @@ export async function deleteRobot(id: number): Promise<ApiResult<null>> {
 export async function getRobotCount(): Promise<ApiResult<number>> {
     try {
         const rows = await query<{ count: string }>(
-            `SELECT COUNT(*) as count FROM m_device`
+            `SELECT COUNT(*) as count FROM m_device WHERE ((device_code LIKE 'TFRB%' OR device_code LIKE 'TFUI%') OR (device_name LIKE 'TFRB%' OR device_name LIKE 'TFUI%'))`
         );
 
         return {
