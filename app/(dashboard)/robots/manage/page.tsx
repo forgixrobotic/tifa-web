@@ -3,12 +3,15 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { getRobots, createRobot, updateRobot, deleteRobot, type Robot } from "@/lib/api";
+import { groupRobots, type GroupedRobot } from "@/lib/utils/robotGrouping";
 
 export default function ManageRobotsPage() {
     const [robots, setRobots] = useState<Robot[]>([]);
+    const [groupedRobots, setGroupedRobots] = useState<GroupedRobot[]>([]);
     const [loading, setLoading] = useState(true);
     const [formOpen, setFormOpen] = useState(false);
-    const [editingId, setEditingId] = useState<number | null>(null);
+    const [editingRbId, setEditingRbId] = useState<number | null>(null);
+    const [editingUiId, setEditingUiId] = useState<number | null>(null);
     const [name, setName] = useState("");
     const [code, setCode] = useState("");
     const [robotLocalIp, setRobotLocalIp] = useState("");
@@ -26,6 +29,7 @@ export default function ManageRobotsPage() {
             setError(apiError);
         } else {
             setRobots(data ?? []);
+            setGroupedRobots(groupRobots(data ?? []));
         }
 
         setLoading(false);
@@ -37,7 +41,8 @@ export default function ManageRobotsPage() {
     }, []);
 
     const resetForm = () => {
-        setEditingId(null);
+        setEditingRbId(null);
+        setEditingUiId(null);
         setName("");
         setCode("");
         setRobotLocalIp("");
@@ -55,21 +60,36 @@ export default function ManageRobotsPage() {
             return;
         }
 
-        if (editingId) {
-            const deviceData = {
-                device_name: name,
-                device_code: code,
-                robot_local_ip: robotLocalIp || null,
-                robot_local_ssid: robotLocalSsid || null,
-            };
-
-            const { error: apiError } = await updateRobot(editingId, deviceData);
-
-            if (apiError) {
-                setError(apiError);
-                return;
+        if (editingRbId || editingUiId) {
+            if (editingRbId) {
+                const rbData = {
+                    device_name: name,
+                    device_code: name,
+                    robot_local_ip: robotLocalIp || null,
+                    robot_local_ssid: robotLocalSsid || null,
+                };
+                const { error: apiError } = await updateRobot(editingRbId, rbData);
+                if (apiError) {
+                    setError(`Error updating Robot node: ${apiError}`);
+                    return;
+                }
             }
-            setSuccess("Robot updated successfully!");
+
+            if (editingUiId) {
+                const uiData = {
+                    device_name: code,
+                    device_code: code,
+                    robot_local_ip: robotLocalIp || null,
+                    robot_local_ssid: robotLocalSsid || null,
+                };
+                const { error: apiError } = await updateRobot(editingUiId, uiData);
+                if (apiError) {
+                    setError(`Error updating UI node: ${apiError}`);
+                    return;
+                }
+            }
+            
+            setSuccess("Robot group updated successfully!");
         } else {
             // New Registration Flow: Split into two devices as per user requirement
             const robotData = {
@@ -108,26 +128,32 @@ export default function ManageRobotsPage() {
         setTimeout(() => setSuccess(null), 3000);
     };
 
-    const handleEdit = (robot: Robot) => {
-        setEditingId(robot.device_id);
-        setName(robot.device_name ?? "");
-        setCode(robot.device_code);
-        setRobotLocalIp(robot.robot_local_ip ?? "");
-        setRobotLocalSsid(robot.robot_local_ssid ?? "");
+    const handleEdit = (group: GroupedRobot) => {
+        setEditingRbId(group.rbDevice?.device_id ?? null);
+        setEditingUiId(group.uiDevice?.device_id ?? null);
+        setName(group.rbDevice?.device_name ?? "");
+        setCode(group.uiDevice?.device_code ?? "");
+        
+        const primaryDevice = group.rbDevice || group.uiDevice || group.devices[0];
+        setRobotLocalIp(primaryDevice?.robot_local_ip ?? "");
+        setRobotLocalSsid(primaryDevice?.robot_local_ssid ?? "");
         setFormOpen(true);
         setError(null);
     };
 
-    const handleDelete = async (id: number, robotName: string) => {
-        const ok = window.confirm(`Permanently remove "${robotName}"? This cannot be undone.`);
+    const handleDelete = async (group: GroupedRobot) => {
+        const ok = window.confirm(`Permanently remove "${group.displayName}" and all its nodes? This cannot be undone.`);
         if (!ok) return;
 
-        const { error: apiError } = await deleteRobot(id);
-        if (apiError) {
-            setError(apiError);
-            return;
+        for (const device of group.devices) {
+            const { error: apiError } = await deleteRobot(device.device_id);
+            if (apiError) {
+                setError(`Error deleting ${device.device_code}: ${apiError}`);
+                return;
+            }
         }
-        setSuccess("Robot removed successfully!");
+        
+        setSuccess("Robot group removed successfully!");
         await loadRobots();
 
         setTimeout(() => setSuccess(null), 3000);
@@ -190,13 +216,13 @@ export default function ManageRobotsPage() {
                 <div className="glass-panel rounded-xl p-6 border border-border-base">
                     <h2 className="text-lg font-semibold text-txt-main mb-6 flex items-center gap-2">
                         <span className="w-1 h-6 bg-blue-500 rounded-full"></span>
-                        {editingId ? "Edit Configuration" : "New Device Registration"}
+                        {editingRbId || editingUiId ? "Edit Configuration" : "New Device Registration"}
                     </h2>
                     <form onSubmit={handleSubmit} className="space-y-5">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2">
                                 <label className="text-xs font-semibold text-txt-sec uppercase tracking-wider">
-                                    Device Name <span className="text-rose-500">*</span>
+                                    Device Name (TFRB) <span className="text-rose-500">*</span>
                                 </label>
                                 <input
                                     value={name}
@@ -207,7 +233,7 @@ export default function ManageRobotsPage() {
                             </div>
                             <div className="space-y-2">
                                 <label className="text-xs font-semibold text-txt-sec uppercase tracking-wider">
-                                    Device Code <span className="text-rose-500">*</span>
+                                    Device Code (TFUI) <span className="text-rose-500">*</span>
                                 </label>
                                 <input
                                     value={code}
@@ -254,7 +280,7 @@ export default function ManageRobotsPage() {
                                 type="submit"
                                 className="px-6 py-2 rounded-lg bg-blue-600 text-sm font-semibold text-white shadow-lg shadow-blue-900/40 hover:bg-blue-500 transition-all"
                             >
-                                {editingId ? "Save Changes" : "Register Device"}
+                                {editingRbId || editingUiId ? "Save Changes" : "Register Device"}
                             </button>
                         </div>
                     </form>
@@ -268,7 +294,7 @@ export default function ManageRobotsPage() {
                         <thead className="bg-[#0f172a]/50 border-b border-border-base">
                             <tr>
                                 <th className="px-6 py-4 text-left text-xs font-semibold text-txt-accent uppercase tracking-wider">Device</th>
-                                <th className="px-6 py-4 text-left text-xs font-semibold text-txt-accent uppercase tracking-wider">Code</th>
+                                <th className="px-6 py-4 text-left text-xs font-semibold text-txt-accent uppercase tracking-wider">Nodes</th>
                                 <th className="px-6 py-4 text-left text-xs font-semibold text-txt-accent uppercase tracking-wider">IP Address</th>
                                 <th className="px-6 py-4 text-left text-xs font-semibold text-txt-accent uppercase tracking-wider">SSID</th>
                                 <th className="px-6 py-4 text-right text-xs font-semibold text-txt-accent uppercase tracking-wider">Actions</th>
@@ -284,15 +310,15 @@ export default function ManageRobotsPage() {
                                         </div>
                                     </td>
                                 </tr>
-                            ) : robots.length === 0 ? (
+                            ) : groupedRobots.length === 0 ? (
                                 <tr>
                                     <td colSpan={5} className="px-6 py-12 text-center text-txt-sec">
                                         No devices registered in the database.
                                     </td>
                                 </tr>
                             ) : (
-                                robots.map((robot) => (
-                                    <tr key={robot.device_id} className="hover:bg-card-bg transition-colors group">
+                                groupedRobots.map((group) => (
+                                    <tr key={group.groupId} className="hover:bg-card-bg transition-colors group">
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="flex items-center gap-3">
                                                 <div className="h-9 w-9 rounded-lg bg-sidebar flex items-center justify-center border border-border-base">
@@ -300,17 +326,34 @@ export default function ManageRobotsPage() {
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
                                                     </svg>
                                                 </div>
-                                                <span className="font-medium text-txt-main group-hover:text-txt-accent transition-colors">{robot.device_name}</span>
+                                                <span className="font-medium text-txt-main group-hover:text-txt-accent transition-colors">{group.displayName}</span>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-txt-sec font-mono tracking-wide">{robot.device_code}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-txt-sec font-mono">{robot.robot_local_ip || '-'}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-txt-sec">{robot.robot_local_ssid || '-'}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                            <div className="flex items-center gap-2">
+                                                {group.rbDevice && (
+                                                    <span className="px-2.5 py-1 rounded-md bg-blue-500/10 text-blue-400 font-mono text-xs border border-blue-500/20">
+                                                        {group.rbDevice.device_code}
+                                                    </span>
+                                                )}
+                                                {group.uiDevice && (
+                                                    <span className="px-2.5 py-1 rounded-md bg-purple-500/10 text-purple-400 font-mono text-xs border border-purple-500/20">
+                                                        {group.uiDevice.device_code}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-txt-sec font-mono">
+                                            {(group.rbDevice?.robot_local_ip || group.uiDevice?.robot_local_ip) || '-'}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-txt-sec">
+                                            {(group.rbDevice?.robot_local_ssid || group.uiDevice?.robot_local_ssid) || '-'}
+                                        </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                                             <div className="flex items-center justify-end gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
                                                 <button
                                                     type="button"
-                                                    onClick={() => handleEdit(robot)}
+                                                    onClick={() => handleEdit(group)}
                                                     className="p-1.5 rounded-lg text-txt-sec hover:bg-blue-100 dark:bg-blue-500/10 hover:text-blue-700 dark:text-blue-400 transition-colors"
                                                     title="Edit"
                                                 >
@@ -320,7 +363,7 @@ export default function ManageRobotsPage() {
                                                 </button>
                                                 <button
                                                     type="button"
-                                                    onClick={() => handleDelete(robot.device_id, robot.device_name ?? "Unknown")}
+                                                    onClick={() => handleDelete(group)}
                                                     className="p-1.5 rounded-lg text-txt-sec hover:bg-rose-100 dark:bg-rose-500/10 hover:text-rose-700 dark:text-rose-400 transition-colors"
                                                     title="Delete"
                                                 >
