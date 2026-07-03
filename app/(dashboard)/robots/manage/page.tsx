@@ -55,14 +55,14 @@ export default function ManageRobotsPage() {
             return;
         }
 
-        const deviceData = {
-            device_name: name,
-            device_code: code,
-            robot_local_ip: robotLocalIp || null,
-            robot_local_ssid: robotLocalSsid || null,
-        };
-
         if (editingId) {
+            const deviceData = {
+                device_name: name,
+                device_code: code,
+                robot_local_ip: robotLocalIp || null,
+                robot_local_ssid: robotLocalSsid || null,
+            };
+
             const { error: apiError } = await updateRobot(editingId, deviceData);
 
             if (apiError) {
@@ -71,13 +71,34 @@ export default function ManageRobotsPage() {
             }
             setSuccess("Robot updated successfully!");
         } else {
-            const { error: apiError } = await createRobot(deviceData);
+            // New Registration Flow: Split into two devices as per user requirement
+            const robotData = {
+                device_name: name,
+                device_code: name,
+                robot_local_ip: robotLocalIp || null,
+                robot_local_ssid: robotLocalSsid || null,
+            };
 
-            if (apiError) {
-                setError(apiError);
+            const uiData = {
+                device_name: code,
+                device_code: code,
+                robot_local_ip: robotLocalIp || null,
+                robot_local_ssid: robotLocalSsid || null,
+            };
+
+            const { error: robotError } = await createRobot(robotData);
+            if (robotError) {
+                setError("Error creating Robot node: " + robotError);
                 return;
             }
-            setSuccess("Robot added successfully!");
+
+            const { error: uiError } = await createRobot(uiData);
+            if (uiError) {
+                setError("Error creating UI node: " + uiError);
+                return;
+            }
+            
+            setSuccess("Robot and UI nodes registered successfully!");
         }
 
         resetForm();
