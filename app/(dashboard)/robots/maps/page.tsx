@@ -255,19 +255,39 @@ export default function ManageMapsPage() {
         setIsSavingGoal(true);
         
         try {
+            // Remap snake_case form fields to camelCase keys expected by the API route
+            const apiPayload = {
+                goalName: goalForm.goal_name,
+                goalCode: goalForm.goal_code,
+                goalType: goalForm.goal_type,
+                x: goalForm.x,
+                y: goalForm.y,
+                yaw: goalForm.yaw,
+            };
+
             if (editingGoal) {
-                const res = await apiUpdateGoal({ ...goalForm, goalId: editingGoal.goal_id });
+                const res = await apiUpdateGoal({ ...apiPayload, goalId: editingGoal.goal_id });
                 if (res.data) {
                     setMapDestinations(prev => ({
                         ...prev, [expandedMapId]: prev[expandedMapId].map(g => g.goal_id === editingGoal.goal_id ? res.data! : g)
                     }));
+                } else if (res.error) {
+                    setError(res.error);
+                    setTimeout(() => setError(null), 3000);
+                    setIsSavingGoal(false);
+                    return;
                 }
             } else {
-                const res = await apiCreateGoal({ ...goalForm, mapId: expandedMapId });
+                const res = await apiCreateGoal({ ...apiPayload, mapId: expandedMapId });
                 if (res.data) {
                     setMapDestinations(prev => ({
                         ...prev, [expandedMapId]: [...(prev[expandedMapId] || []), res.data!]
                     }));
+                } else if (res.error) {
+                    setError(res.error);
+                    setTimeout(() => setError(null), 3000);
+                    setIsSavingGoal(false);
+                    return;
                 }
             }
             closeGoalModal();
