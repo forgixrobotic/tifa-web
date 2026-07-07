@@ -845,7 +845,7 @@ export default function RobotControlPanel({ selectedGroup }: Props) {
                                         disabled={isDisabled}
                                         className={`w-full py-4 rounded-xl font-bold text-base transition-all duration-200 flex items-center justify-center gap-2 mb-2 ${isDisabled
                                             ? "bg-white/10 text-white/30 cursor-not-allowed border border-white/10"
-                                            : "bg-white text-[#0B0F19] hover:bg-white/90 shadow-[0_4px_20px_rgba(255,255,255,0.15)] border border-white/20 active:scale-[0.98]"
+                                            : "bg-txt-accent text-[#0B0F19] hover:brightness-110 shadow-[0_4px_20px_rgba(3,230,228,0.25)] border border-txt-accent/50 active:scale-[0.98]"
                                             }`}
                                     >
                                         {isSending ? (
