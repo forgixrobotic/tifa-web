@@ -415,7 +415,7 @@ export default function RobotDetailPage({
         </div>
         <div className="max-h-64 overflow-y-auto custom-scrollbar">
           <table className="min-w-full text-xs">
-            <thead className="bg-[#0f172a]/50 text-left text-[10px] font-semibold text-blue-700 dark:text-blue-400 uppercase tracking-wider sticky top-0 z-10 backdrop-blur-sm">
+            <thead className="bg-black text-left text-[10px] font-semibold text-blue-700 dark:text-blue-400 uppercase tracking-wider sticky top-0 z-10 backdrop-blur-sm">
               <tr>
                 <th className="px-6 py-3">Time</th>
                 <th className="px-6 py-3">Charge</th>
