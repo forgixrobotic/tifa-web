@@ -379,7 +379,7 @@ export default function ManageMapsPage() {
             {/* MAP LIST VIEW */}
             <div className="glass-panel rounded-xl overflow-x-auto border border-border-base w-full">
                 <table className="min-w-full divide-y divide-border-base whitespace-nowrap">
-                    <thead className="bg-[#0f172a]/50">
+                    <thead className="bg-black">
                         <tr>
                             <th className="px-6 py-4 text-left text-xs font-semibold text-txt-accent uppercase">{dict.dashboard.maps?.map_name || "Map Name"}</th>
                             <th className="px-6 py-4 text-left text-xs font-semibold text-txt-accent uppercase">{dict.dashboard.maps?.map_floor || "Floor"}</th>
