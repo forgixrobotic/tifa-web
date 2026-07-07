@@ -291,7 +291,7 @@ export default function ManageRobotsPage() {
             <div className="glass-panel rounded-xl overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="min-w-full">
-                        <thead className="bg-[#0f172a]/50 border-b border-border-base">
+                        <thead className="bg-black border-b border-border-base">
                             <tr>
                                 <th className="px-6 py-4 text-left text-xs font-semibold text-txt-accent uppercase tracking-wider">Device</th>
                                 <th className="px-6 py-4 text-left text-xs font-semibold text-txt-accent uppercase tracking-wider">Nodes</th>
