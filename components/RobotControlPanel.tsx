@@ -257,6 +257,8 @@ export default function RobotControlPanel({ selectedGroup }: Props) {
 
             if (result.error) {
                 setToast({ type: "error", message: result.error });
+            } else if (result.data && !result.data.ws_sent) {
+                setToast({ type: "error", message: result.data.ws_error || "Gagal mengirim: Sesi WebSocket belum aktif. Silakan ambil kontrol WS (Take WS Control) di bar atas." });
             } else {
                 const destNames = Object.values(trayDestinations).flat().map(g => g.goal_name ?? g.goal_code);
                 const trayNums = Object.keys(trayDestinations).filter(k => (trayDestinations[Number(k)]?.length ?? 0) > 0);
@@ -307,6 +309,8 @@ export default function RobotControlPanel({ selectedGroup }: Props) {
 
             if (result.error) {
                 setToast({ type: "error", message: result.error });
+            } else if (result.data && !result.data.ws_sent) {
+                setToast({ type: "error", message: result.data.ws_error || "Gagal mengirim: Sesi WebSocket belum aktif. Silakan ambil kontrol WS (Take WS Control) di bar atas." });
             } else {
                 setToast({
                     type: "success",
