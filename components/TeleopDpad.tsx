@@ -339,6 +339,13 @@ export default function TeleopDpad({ selectedGroup, onDone }: Props) {
                 });
                 setLastSendStatus(result.sent ? "ok" : "error");
 
+                if (!result.sent) {
+                    setToast({
+                        type: "error",
+                        message: result.error || "Gagal mengirim: Sesi WebSocket belum aktif. Silakan ambil kontrol WS (Take WS Control) di bar atas."
+                    });
+                }
+
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 if ((result as any).robot_may_be_offline && !hasShownOfflineWarningRef.current) {
                     hasShownOfflineWarningRef.current = true;
