@@ -58,6 +58,7 @@ npm run dev
 - ✅ **🕹️ Teleop (D-Pad)** — Kontrol manual robot via virtual joystick
 - ✅ **🗺️ Mapping** — Start, stop, save, flag goals saat live mapping
 - ✅ **📍 Map Selection** — Assign active map ke robot via `MAP_SELECTED` command
+- ✅ **📤 Map Data** — Kirim data peta ke robot via `MAP_DATA` command
 - ✅ **🎙️ Voice Control** — Toggle TALK_ON/OFF untuk robot AI server
 
 ### System
@@ -65,6 +66,8 @@ npm run dev
 - ✅ **🔐 Auth** — Login dengan role-based access (admin / operator)
 - ✅ **🌐 i18n** — Bahasa Indonesia & English
 - ✅ **🎨 Dark / Light Mode** — Theme switcher dengan transisi smooth
+- ✅ **⚙️ Settings Page** — Konfigurasi WS URL, UI ID, Robot ID, Map ID
+- ✅ **🔌 WebSocket Session Control** — Turn ON/OFF koneksi WS, dengan session locking per user
 - ✅ **📖 Product Docs** — Diagonal company landing + TIFA landing & dokumentasi
 
 ---
@@ -83,7 +86,8 @@ npm run dev
 | WebSocket | [`ws`](https://github.com/websockets/ws) (server-side) |
 | Font | [Plus Jakarta Sans](https://fonts.google.com/specimen/Plus+Jakarta+Sans) |
 | Tunnel | [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) |
-| Compression | [`archiver`](https://www.npmjs.com/package/archiver) (map ZIP builder) |
+| Compression | [`archiver`](https://www.npmjs.com/package/archiver) + [`adm-zip`](https://www.npmjs.com/package/adm-zip) (map ZIP builder/reader) |
+| XML | [`@xmldom/xmldom`](https://www.npmjs.com/package/@xmldom/xmldom) (XML parsing) |
 
 ### Communication Flow
 
@@ -114,10 +118,9 @@ npm run dev
 tifa-dashboard/
 ├── app/
 │   ├── (auth)/                     # Auth pages
-│   │   ├── login/page.tsx
-│   │   └── register/page.tsx
+│   │   └── login/page.tsx          #   Login page
 │   ├── (dashboard)/                # Protected dashboard (sidebar layout)
-│   │   ├── layout.tsx              #   Sidebar + header
+│   │   ├── layout.tsx              #   Sidebar + header + WS session control
 │   │   ├── dashboard/page.tsx      #   Fleet monitoring overview
 │   │   ├── robots/
 │   │   │   ├── page.tsx            #   Robot list
@@ -125,7 +128,7 @@ tifa-dashboard/
 │   │   │   ├── manage/page.tsx     #   CRUD robot management
 │   │   │   └── maps/page.tsx       #   Map management
 │   │   ├── notifications/page.tsx  #   Notification center
-│   │   └── account/page.tsx        #   Account settings
+│   │   └── settings/page.tsx       #   WS & communication settings
 │   ├── api/                        # Next.js Route Handlers (backend)
 │   │   ├── auth/
 │   │   ├── battery/
@@ -138,30 +141,38 @@ tifa-dashboard/
 │   │   ├── position/
 │   │   ├── robot-control/
 │   │   ├── robots/
+│   │   ├── settings/
 │   │   ├── state/
+│   │   ├── ws/
+│   │   │   ├── connect/            #   Trigger WS connection
+│   │   │   └── session/            #   WS session ON/OFF management
 │   │   └── ws-traffic/
 │   ├── tifa/
 │   │   ├── page.tsx                # TIFA product landing page
 │   │   └── docs/                   # Product documentation
 │   ├── page.tsx                    # Diagonal company landing page
-│   ├── layout.tsx                  # Root layout (providers)
+│   ├── layout.tsx                  # Root layout (providers, font, metadata)
 │   └── globals.css                 # Design tokens + global styles
 │
 ├── components/
-│   ├── RobotControlPanel.tsx       # Full robot control UI
+│   ├── RobotControlPanel.tsx       # Full robot control UI (OP, MOVE, TELEOP, MAPPING, TALK)
 │   ├── TeleopDpad.tsx              # Virtual D-Pad joystick
 │   ├── NotificationBell.tsx        # Real-time notification dropdown
 │   ├── RobotSelectorModal.tsx      # Robot picker dialog
 │   ├── RobotReadyToast.tsx         # Robot status toast
+│   ├── WebSocketSessionControl.tsx # WS session ON/OFF toggle (header)
 │   ├── BatteryIcon.tsx             # Battery level indicator
 │   ├── ThemeProvider.tsx           # Dark/light theme context
 │   ├── ThemeSwitcher.tsx           # Theme toggle button
 │   ├── LanguageProvider.tsx        # i18n context
-│   ├── LanguageSwitcher.tsx        # Language toggle
+│   ├── LanguageSwitcher.tsx        # Language toggle (dashboard)
+│   ├── LandingLanguageSwitcher.tsx # Language toggle (landing pages)
 │   ├── UserDropdown.tsx            # User menu
 │   ├── LogoutConfirmDialog.tsx     # Logout modal
 │   ├── DiagonalNavbar.tsx          # Landing page navbar
-│   └── ...
+│   ├── Navbar.tsx                  # Alternative navbar component
+│   ├── InteractiveCursor.tsx       # Custom cursor effect
+│   └── CursorDragAnimation.tsx     # Cursor drag animation
 │
 ├── lib/
 │   ├── api/                        # Server-side DB query functions
@@ -172,7 +183,7 @@ tifa-dashboard/
 │   │   ├── deviceStatus.ts         #   v_device_status view
 │   │   ├── goals.ts                #   Goal CRUD
 │   │   ├── maps.ts                 #   Map queries
-│   │   ├── mapDataBuilder.ts       #   Map ZIP builder (archiver)
+│   │   ├── mapDataBuilder.ts       #   Map ZIP builder (archiver + adm-zip)
 │   │   ├── notifications.ts        #   Notification feed
 │   │   ├── position.ts             #   Position history
 │   │   ├── robotControl.ts         #   Command orchestration
@@ -186,9 +197,14 @@ tifa-dashboard/
 │   ├── dbClient.ts                 # PostgreSQL Pool + retry logic
 │   ├── wsClient.ts                 # WebSocket client (robot communication)
 │   ├── client-api.ts               # Frontend fetch wrappers
+│   ├── settings.ts                 # Runtime settings (data/settings.json)
+│   ├── sessionId.ts                # Per-user unique UI Client ID generator
 │   ├── dictionaries.ts             # i18n: Dashboard (ID/EN)
 │   ├── dictionaries-diagonal.ts    # i18n: Diagonal landing
 │   └── dictionaries-tifa.ts        # i18n: TIFA landing
+│
+├── data/
+│   └── settings.json               # Runtime WS & communication settings
 │
 ├── public/                         # Static assets
 │   ├── logo/                       #   Diagonal logos
@@ -197,7 +213,10 @@ tifa-dashboard/
 │
 ├── .env.local                      # Environment variables (git-ignored)
 ├── package.json
-└── tsconfig.json
+├── next.config.ts
+├── tsconfig.json
+├── postcss.config.mjs
+└── eslint.config.mjs
 ```
 
 ---
@@ -253,9 +272,10 @@ h_state        (device_id, robot_mode, robot_activity, is_emergency, ...)
 ### DB Client Features
 
 - **Connection pool** — max 20 clients, 30s idle timeout
-- **Auto-retry** — retry 2x on `ECONNRESET`, `ECONNREFUSED`, `ETIMEDOUT`
+- **Auto-retry** — retry 2x on `ECONNRESET`, `ECONNREFUSED`, `ETIMEDOUT`, `EPIPE`, `EAI_AGAIN`
 - **Typed queries** — generic `query<T>()` dan `queryWithCount<T>()` helpers
 - **Transaction support** — `transaction(callback)` dengan auto commit/rollback
+- **Connection test** — `testConnection(retries, delayMs)` dengan exponential backoff
 
 ---
 
@@ -263,7 +283,7 @@ h_state        (device_id, robot_mode, robot_activity, is_emergency, ...)
 
 ### Connection
 
-**Broker URL**: `wss://tifa-ws.forgixrobotic.com`
+**Broker URL**: `wss://tifa-ws.forgixrobotic.com` (configurable via Settings page)
 
 WebSocket dikelola **server-side** di `lib/wsClient.ts`. Browser tidak connect langsung ke WS — semua command dikirim lewat Next.js API routes.
 
@@ -271,13 +291,25 @@ WebSocket dikelola **server-side** di `lib/wsClient.ts`. Browser tidak connect l
 Browser → POST /api/robot-control → wsClient.ts → WS Broker → TFRB1
 ```
 
+### WebSocket Session Control
+
+WS connection dikelola via **session locking** agar hanya satu user yang mengontrol robot pada satu waktu:
+
+- **Turn ON** — User klaim session WS, koneksi dimulai
+- **Turn OFF** — User lepas session, koneksi diputus
+- **Locked** — Jika user lain sedang memegang session, tombol di-disable
+- Status ditampilkan di header dashboard via `WebSocketSessionControl` component
+- Session state disimpan di `data/settings.json` (`isWsTurnedOn`, `activeUserEmail`)
+
 ### Device IDs
 
 | ID | Device | Keterangan |
 |----|--------|------------|
 | `TFRB1` | Robot TIFA | Target utama semua command |
 | `TFUI1` | Tablet App | Aplikasi mobile (Android) |
-| `TFWB1` | Web Dashboard | Dashboard ini (sender) |
+| `TFWB1` | Web Dashboard | Dashboard ini (sender, default) |
+
+> **Note:** UI ID bisa dikonfigurasi di Settings page. Per-user unique ID juga di-generate via `sessionId.ts` dengan format `TFWB_{emailHash}_{tabSuffix}`.
 
 ### Session Flow
 
@@ -286,6 +318,16 @@ Browser → POST /api/robot-control → wsClient.ts → WS Broker → TFRB1
 3. Terima **ACK_SOFT** → session aktif, siap kirim command
 4. Jika `DUPLICATE_UI_ID` → retry dengan progressive delay (3s → 5s → 10s)
 5. Auto-reconnect setiap 5 detik jika koneksi putus
+6. Jika `Send SI first` error → otomatis re-send SI
+
+### Payload Encoding
+
+Payload di-encode ke Base64 sebelum dikirim dari frontend untuk keamanan transport:
+
+```typescript
+encodePayload(payload)   // object → Base64 string
+decodePayload(encoded)   // Base64 string → object
+```
 
 ---
 
@@ -349,7 +391,7 @@ Browser → POST /api/robot-control → wsClient.ts → WS Broker → TFRB1
   "code": "TELEOP",
   "data": {
     "robot_id": "TFRB1",
-    "web_id": "TFWB1",
+    "ui_id": "TFWB1",
     "linear": { "x": 0.5, "y": 0.0, "z": 0.0 },
     "angular": { "x": 0.0, "y": 0.0, "z": 0.3 },
     "speed": "S"
@@ -359,6 +401,19 @@ Browser → POST /api/robot-control → wsClient.ts → WS Broker → TFRB1
 
 **Speed values**: `"S"` (Slow) | `"F"` (Fast) | `"VF"` (Very Fast)
 
+#### TELEOP_DONE — End Manual Control
+
+```json
+{
+  "code": "TELEOP_DONE",
+  "data": {
+    "robot_id": "TFRB1",
+    "ui_id": "TFWB1",
+    "status": "done"
+  }
+}
+```
+
 #### MAPPING Commands
 
 ```json
@@ -366,7 +421,7 @@ Browser → POST /api/robot-control → wsClient.ts → WS Broker → TFRB1
   "code": "MAPPING_START",
   "data": {
     "robot_id": "TFRB1",
-    "web_id": "TFWB1",
+    "ui_id": "TFWB1",
     "status": true,
     "is_auto": false,
     "timestamp": "2026-05-06T15:00:00.000Z"
@@ -386,8 +441,29 @@ Browser → POST /api/robot-control → wsClient.ts → WS Broker → TFRB1
   "code": "MAP_SELECTED",
   "data": {
     "robot_id": "TFRB1",
+    "ui_id": "TFWB1",
     "map_id": 3,
     "timestamp": "2026-05-06T15:00:00.000Z"
+  },
+  "origin": "UI",
+  "origin_id": "TFWB1",
+  "timestamp": "2026-05-06T15:00:00.000Z",
+  "message_id": "uuid-v4"
+}
+```
+
+#### MAP_DATA — Send Map Data to Robot
+
+```json
+{
+  "code": "MAP_DATA",
+  "data": {
+    "robot_id": "TFRB1",
+    "ui_id": "TFWB1",
+    "map_id": 3,
+    "format": "zip",
+    "encoding": "base64",
+    "payload": "<base64-encoded-zip>"
   },
   "origin": "UI",
   "origin_id": "TFWB1",
@@ -403,7 +479,7 @@ Browser → POST /api/robot-control → wsClient.ts → WS Broker → TFRB1
   "code": "CONTROL",
   "data": {
     "type": "control",
-    "web_id": "TFWB1",
+    "ui_id": "TFWB1",
     "action": "TALK_ON",
     "robot_id": "TFRB1"
   },
@@ -442,6 +518,8 @@ Di-log ke `h_command_log` + `h_ws_traffic`, dan muncul di Notification Bell.
 | `ACK` / `INIT` / `DISCONNECT` | Log ke `h_ws_traffic` |
 | `ERROR` | Log ke `h_ws_traffic` + console |
 | `ERROR: DUPLICATE_UI_ID` | Retry dengan progressive delay |
+| `ERROR: Send SI first` | Otomatis re-send SI |
+| Voice status update | Update `isListening` state |
 
 ---
 
@@ -467,6 +545,11 @@ Di-log ke `h_command_log` + `h_ws_traffic`, dan muncul di Notification Bell.
 | `GET` | `/api/notifications` | Notification feed |
 | `POST` | `/api/robot-control` | Send robot command |
 | `GET` | `/api/ws-traffic` | WS traffic log |
+| `GET` | `/api/settings` | Get communication settings |
+| `POST` | `/api/settings` | Update communication settings |
+| `GET` | `/api/ws/session` | Get WS session status |
+| `POST` | `/api/ws/session` | Turn ON/OFF WS session |
+| `POST` | `/api/ws/connect` | Trigger WS connection |
 
 ---
 
@@ -478,14 +561,13 @@ Di-log ke `h_command_log` + `h_ws_traffic`, dan muncul di Notification Bell.
 | `/tifa` | TIFA product landing page | Public |
 | `/tifa/docs` | Dokumentasi produk TIFA | Public |
 | `/login` | Login | Public |
-| `/register` | Register | Public |
 | `/dashboard` | Fleet monitoring dashboard | Protected |
 | `/robots` | Daftar semua robot | Protected |
 | `/robots/[id]` | Detail + kontrol robot | Protected |
 | `/robots/manage` | CRUD robot management | Protected |
 | `/robots/maps` | Manajemen peta & goals | Protected |
 | `/notifications` | Notification center | Protected |
-| `/account` | Account settings | Protected |
+| `/settings` | WS & communication settings | Protected |
 
 ---
 
@@ -511,6 +593,21 @@ DB_PASS=your_password_here
 
 # WebSocket Robot Broker
 WS_ROBOT_URL=wss://tifa-ws.forgixrobotic.com
+```
+
+### Runtime Settings
+
+Settings runtime disimpan di `data/settings.json` dan bisa dikonfigurasi lewat halaman `/settings`:
+
+```json
+{
+  "wsUrl": "wss://tifa-ws.forgixrobotic.com",
+  "uiId": "TFWB1",
+  "robotId": "TFRB1",
+  "mapId": "50",
+  "activeUserEmail": null,
+  "isWsTurnedOn": false
+}
 ```
 
 ### Scripts
@@ -584,9 +681,10 @@ cloudflared access tcp --hostname postgres.forgixrobotic.com --url localhost:500
 
 **Solution**:
 1. Cek log server — pastikan `[WS Robot] ✅ Session established as TFWB1` sudah muncul
-2. Cek `h_command_log` di database — apakah status `SENT` atau `QUEUED`?
-3. Jika `QUEUED`, berarti WS tidak terkoneksi saat command dikirim
-4. Verifikasi `TFRB1` terdaftar di tabel `m_device`
+2. Pastikan WS session sudah di-Turn ON via header dashboard
+3. Cek `h_command_log` di database — apakah status `SENT` atau `QUEUED`?
+4. Jika `QUEUED`, berarti WS tidak terkoneksi saat command dikirim
+5. Verifikasi `TFRB1` terdaftar di tabel `m_device`
 
 ### DUPLICATE_UI_ID Error
 
@@ -612,6 +710,14 @@ cloudflared access tcp --hostname postgres.forgixrobotic.com --url localhost:500
 1. Pastikan robot memiliki `active_map_id` yang ter-set di `m_device`
 2. Pastikan map tersebut memiliki goals dengan `goal_type = 'TABLE'` atau `'CUSTOM'` di `m_goal`
 3. Cek response dari `/api/goals?mapId=X`
+
+### WebSocket Session Terkunci oleh User Lain
+
+**Problem**: Tombol Turn ON disabled dan menampilkan nama user lain.
+
+**Cause**: User lain sudah mengaktifkan WS session.
+
+**Solution**: Minta user tersebut Turn OFF session, atau edit manual `data/settings.json` dan set `isWsTurnedOn: false`.
 
 ---
 
@@ -657,6 +763,20 @@ Max retries: 2
 Delay: 500ms → 1000ms (exponential backoff)
 ```
 
+### Per-User Session ID
+
+Setiap user yang login mendapat unique UI Client ID:
+
+```
+Format: TFWB_{emailHash}_{tabSuffix}
+Contoh: TFWB_b7a1_3f8e
+```
+
+- Berbeda user → berbeda ID
+- Berbeda tab → berbeda ID
+- Page refresh → ID sama (sessionStorage)
+- Logout + login → ID baru
+
 ---
 
 ## 👥 Tim
@@ -671,4 +791,4 @@ Private — Diagonal Robotic Solution
 
 ---
 
-**Last Updated**: May 2026 · **Version**: 0.1.0
+**Last Updated**: July 2026 · **Version**: 0.1.0
