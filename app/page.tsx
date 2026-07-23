@@ -339,7 +339,7 @@ function DiagonalContent() {
           <div className="grid lg:grid-cols-2 gap-8">
             <div className="reveal delay-200">
               <div className="relative bg-gradient-to-br from-[#2a2a2a] to-[#1A1A1A] rounded-3xl overflow-hidden border border-white/10 p-8">
-                <div className="relative mb-8"><Image src="/robot/TIFA_HEAD_NEW.png" alt="TIFA Head" width={400} height={300} className="w-full h-auto object-contain rounded-2xl" /></div>
+                <div className="relative mb-8"><Image src="/robot/tifa_head_new.png" alt="TIFA Head" width={400} height={300} className="w-full h-auto object-contain rounded-2xl" /></div>
                 <div className="mb-8">
                   <h3 className="text-4xl md:text-5xl font-bold tracking-wide mb-2">{dict.tifa_featured.card_title}</h3>
                   <p className="text-gray-500 text-sm">{dict.tifa_featured.card_subtitle}</p>
