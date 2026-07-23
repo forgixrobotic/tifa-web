@@ -184,13 +184,13 @@ export default function DashboardLayout({
             {!sidebarCollapsed ? (
               <div className="flex items-center justify-center w-full">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/logo/logo diagonal_White.png" alt="Diagonal Robotic Solution" className="h-10 lg:h-12 w-auto object-contain" />
+                <img src="/logo/diagonal/diagonal_white.png" alt="Diagonal Robotic Solution" className="h-10 lg:h-12 w-auto object-contain" />
               </div>
             ) : (
               <div className="flex items-center justify-center w-full">
                 <div className="h-10 w-10 rounded-2xl bg-white flex items-center justify-center shadow-lg p-1">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src="/logo/LOGO BLACK.png" alt="D" className="w-full h-full object-contain scale-[1.5]" />
+                  <img src="/logo/diagonal/diagonal_square.png" alt="D" className="w-full h-full object-contain scale-[1.5]" />
                 </div>
               </div>
             )}

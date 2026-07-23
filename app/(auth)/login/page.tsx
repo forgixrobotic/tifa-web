@@ -54,7 +54,7 @@ export default function LoginPage() {
         <div className="relative z-10 max-w-lg mb-6 animate-slide-up">
           {/* Logo */}
           <div className="flex items-center mb-4 -ml-4 lg:-ml-6">
-            <Image src="/logo/logo diagonal_White.png" alt="Diagonal Robotic Solution" width={340} height={80} className="h-14 lg:h-16 w-auto object-contain" priority />
+            <Image src="/logo/diagonal/diagonal_white.png" alt="Diagonal Robotic Solution" width={340} height={80} className="h-14 lg:h-16 w-auto object-contain" priority />
           </div>
 
           <h1 className="text-4xl font-bold text-white tracking-tight mb-4">
@@ -92,7 +92,7 @@ export default function LoginPage() {
           {/* Mobile Logo */}
           <div className="lg:hidden text-center mb-8">
             <div className="flex items-center justify-center mb-4">
-              <Image src="/logo/WhatsApp Image 2026-04-27 at 08.20.58.jpeg" alt="Diagonal Robotic Solution" width={180} height={50} className="h-10 w-auto object-contain" priority />
+              <Image src="/logo/diagonal/diagonal_black_bg.png" alt="Diagonal Robotic Solution" width={180} height={50} className="h-10 w-auto object-contain" priority />
             </div>
           </div>
 

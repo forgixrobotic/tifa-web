@@ -75,10 +75,10 @@ function TIFAContent() {
     };
 
     const journeyItems = [
-        { title: dict.journey.item_1.title, description: dict.journey.item_1.description, image: "/prosestifa_1.png", align: "left" },
-        { title: dict.journey.item_2.title, description: dict.journey.item_2.description, image: "/prosestifa_2.png", align: "right" },
-        { title: dict.journey.item_3.title, description: dict.journey.item_3.description, image: "/tifa_in_telcoff.jpeg", align: "left" },
-        { title: dict.journey.item_4.title, description: dict.journey.item_4.description, image: "/tifa/tifa-head.png", align: "right" },
+        { title: dict.journey.item_1.title, description: dict.journey.item_1.description, image: "/photos/prosestifa_1.png", align: "left" },
+        { title: dict.journey.item_2.title, description: dict.journey.item_2.description, image: "/photos/prosestifa_2.png", align: "right" },
+        { title: dict.journey.item_3.title, description: dict.journey.item_3.description, image: "/photos/tifa_in_telcoff.jpeg", align: "left" },
+        { title: dict.journey.item_4.title, description: dict.journey.item_4.description, image: "/robot/tifa_head.png", align: "right" },
     ];
 
     return (
@@ -87,7 +87,7 @@ function TIFAContent() {
             <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? "bg-[#1F1F1F]/95 backdrop-blur-md shadow-lg py-2" : "bg-transparent py-4"} ${isNavbarVisible ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0 pointer-events-none"}`}>
                 <div className="max-w-7xl mx-auto px-6 lg:px-12 flex items-center justify-between">
                     <Link href="/tifa" onClick={scrollToTop} className="flex items-center group">
-                        <Image src="/logo-tifa-full.png" alt="TIFA" width={200} height={100} className="h-[100px] w-auto object-contain" priority />
+                        <Image src="/logo/tifa/tifa_full.png" alt="TIFA" width={100} height={45} className="h-[45px] w-auto object-contain" priority />
                     </Link>
                     <div className="hidden lg:flex items-center gap-1">
                         <Link href="/tifa" onClick={scrollToTop} className="px-4 py-2 text-sm font-medium text-white/90 hover:text-white hover:bg-white/10 rounded-lg transition-all">{dict.nav.home}</Link>
@@ -115,7 +115,7 @@ function TIFAContent() {
                 <div className={`absolute top-0 right-0 h-full w-72 bg-[#1F1F1F] transition-transform duration-300 flex flex-col ${isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}>
                     {/* Mobile Menu Header */}
                     <div className="flex items-center justify-between p-6 border-b border-white/10">
-                        <Image src="/tifa/logo-tifa-red.png" alt="TIFA" width={32} height={32} className="w-8 h-8 object-contain" />
+                        <Image src="/logo/tifa/tifa.png" alt="TIFA" width={32} height={32} className="w-8 h-8 object-contain" />
                         <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 -mr-2 text-white/70 hover:text-white transition-colors rounded-lg hover:bg-white/10">
                             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -150,7 +150,7 @@ function TIFAContent() {
                     <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center min-h-[65vh]">
                         <div className="reveal order-2 lg:order-1">
                             <div className="hero-badge mb-5">
-                                <Image src="/tifa/logo-tifa-red.png" alt="TIFA" width={28} height={28} className="w-7 h-7" />
+                                <Image src="/logo/tifa/tifa.png" alt="TIFA" width={28} height={28} className="w-7 h-7" />
                                 <span>{dict.hero.badge}</span>
                             </div>
                             <h1 className="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold mb-4 leading-[1.05]">
@@ -174,7 +174,7 @@ function TIFAContent() {
                         <div className="relative reveal-right delay-200 order-1 lg:order-2 flex justify-center lg:justify-end mt-12 lg:mt-16">
                             <div className="relative">
                                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-[#B6252A]/20 rounded-full blur-[100px]" />
-                                <Image src="/TIFA_FRONT.png" alt="TIFA Robot" width={350} height={440} className="relative z-10 w-[180px] md:w-[230px] lg:w-[280px] h-auto object-contain drop-shadow-2xl animate-float" priority />
+                                <Image src="/robot/tifa_front.png" alt="TIFA Robot" width={350} height={440} className="relative z-10 w-[180px] md:w-[230px] lg:w-[280px] h-auto object-contain drop-shadow-2xl animate-float" priority />
                                 <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[80%] h-1 bg-gradient-to-r from-transparent via-[#B6252A]/50 to-transparent rounded-full" />
                             </div>
                         </div>
@@ -184,11 +184,11 @@ function TIFAContent() {
                     <div className="supported-by-section reveal-slide-up">
                         <p className="text-gray-500 text-sm font-medium text-center mb-8 reveal-scale">{dict.hero.powered_by}</p>
                         <div className="flex flex-wrap justify-center items-center gap-8 md:gap-12 lg:gap-16 max-w-4xl mx-auto">
-                            <div className="reveal-scale" style={{ transitionDelay: '0.1s' }}><Image src="/tifa/logo_telkom_hitam.png" alt="Telkom University" width={140} height={45} className="h-9 md:h-11 w-auto object-contain opacity-70 hover:opacity-100 transition-opacity" /></div>
-                            <div className="reveal-scale" style={{ transitionDelay: '0.2s' }}><Image src="/tifa/logo-btp.png" alt="Bandung Techno Park" width={160} height={60} className="h-14 md:h-16 w-auto object-contain opacity-70 hover:opacity-100 transition-opacity" /></div>
-                            <div className="reveal-scale" style={{ transitionDelay: '0.3s' }}><Image src="/Fakultas-Teknik-Elektro.png" alt="Fakultas Teknik Elektro" width={200} height={80} className="h-16 md:h-20 w-auto object-contain opacity-70 hover:opacity-100 transition-opacity" /></div>
-                            <div className="reveal-scale" style={{ transitionDelay: '0.4s' }}><Image src="/tifa/logo_PDA.png" alt="PDA" width={100} height={45} className="h-9 md:h-11 w-auto object-contain opacity-70 hover:opacity-100 transition-opacity" /></div>
-                            <div className="reveal-scale" style={{ transitionDelay: '0.5s' }}><Image src="/tifa/logo-telucoffee.png" alt="Telu Coffee" width={120} height={120} className="h-16 md:h-20 w-auto object-contain opacity-70 hover:opacity-100 transition-opacity" /></div>
+                            <div className="reveal-scale" style={{ transitionDelay: '0.1s' }}><Image src="/logo/partners/telkom_black.png" alt="Telkom University" width={140} height={45} className="h-9 md:h-11 w-auto object-contain opacity-70 hover:opacity-100 transition-opacity" /></div>
+                            <div className="reveal-scale" style={{ transitionDelay: '0.2s' }}><Image src="/logo/partners/btp.png" alt="Bandung Techno Park" width={160} height={60} className="h-14 md:h-16 w-auto object-contain opacity-70 hover:opacity-100 transition-opacity" /></div>
+                            <div className="reveal-scale" style={{ transitionDelay: '0.3s' }}><Image src="/logo/partners/fte.png" alt="Fakultas Teknik Elektro" width={200} height={80} className="h-16 md:h-20 w-auto object-contain opacity-70 hover:opacity-100 transition-opacity" /></div>
+                            <div className="reveal-scale" style={{ transitionDelay: '0.4s' }}><Image src="/logo/partners/pda.png" alt="PDA" width={100} height={45} className="h-9 md:h-11 w-auto object-contain opacity-70 hover:opacity-100 transition-opacity" /></div>
+                            <div className="reveal-scale" style={{ transitionDelay: '0.5s' }}><Image src="/logo/partners/telu_coffee.png" alt="Telu Coffee" width={120} height={120} className="h-16 md:h-20 w-auto object-contain opacity-70 hover:opacity-100 transition-opacity" /></div>
                         </div>
                     </div>
                 </div>
@@ -212,16 +212,16 @@ function TIFAContent() {
                             <div className="relative w-full max-w-[550px] mx-auto lg:mx-0 lg:ml-auto">
                                 <div className="relative">
                                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[250px] md:w-[300px] lg:w-[350px] h-[350px] lg:h-[450px] bg-black/60 rounded-full blur-[80px] pointer-events-none" />
-                                    <Image src="/TIFA_SIDE.png" alt="TIFA Robot" width={400} height={550} className="relative z-10 w-[280px] md:w-[320px] lg:w-[380px] h-auto object-contain drop-shadow-[0_20px_50px_rgba(0,0,0,0.5)] mx-auto" priority />
+                                    <Image src="/robot/tifa_side.png" alt="TIFA Robot" width={400} height={550} className="relative z-10 w-[280px] md:w-[320px] lg:w-[380px] h-auto object-contain drop-shadow-[0_20px_50px_rgba(0,0,0,0.5)] mx-auto" priority />
                                 </div>
                                 <div className="absolute top-[25%] right-[-50px] md:right-[-70px] lg:right-[-90px] z-20 animate-float">
                                     <div className="bg-[#2a2a2a] rounded-2xl p-3 shadow-2xl border border-gray-700/50">
-                                        <Image src="/TIFA_HEAD_NEW.png" alt="TIFA Side Profile" width={250} height={200} className="w-[180px] md:w-[220px] lg:w-[250px] h-auto object-contain rounded-xl" />
+                                        <Image src="/robot/tifa_head_new.png" alt="TIFA Side Profile" width={250} height={200} className="w-[180px] md:w-[220px] lg:w-[250px] h-auto object-contain rounded-xl" />
                                     </div>
                                 </div>
                                 <div className="absolute top-[50%] left-[-40px] md:left-[-60px] lg:left-[-80px] z-20 animate-float" style={{ animationDelay: '0.5s' }}>
                                     <div className="bg-[#2a2a2a] rounded-2xl p-3 shadow-2xl border border-gray-700/50">
-                                        <Image src="/TIFA_HEAD_NEW_2.png" alt="TIFA Head" width={250} height={200} className="w-[180px] md:w-[220px] lg:w-[250px] h-auto object-contain rounded-xl" />
+                                        <Image src="/robot/tifa_head_new_2.png" alt="TIFA Head" width={250} height={200} className="w-[180px] md:w-[220px] lg:w-[250px] h-auto object-contain rounded-xl" />
                                     </div>
                                 </div>
                             </div>
@@ -233,7 +233,7 @@ function TIFAContent() {
             {/* Journey of TIFA Section */}
             <section id="journey" className="relative py-24 overflow-hidden">
                 <div className="absolute inset-0">
-                    <Image src="/tifa/journey-image.png" alt="Journey Background" fill className="object-cover" />
+                    <Image src="/photos/journey_image.png" alt="Journey Background" fill className="object-cover" />
                     <div className="absolute inset-0 bg-black/80" />
                 </div>
                 <div className="relative z-10 max-w-6xl mx-auto px-6 lg:px-12">
@@ -288,7 +288,7 @@ function TIFAContent() {
             {/* Exclusive Restaurant Robot Section */}
             <section id="services" className="py-20 lg:py-28 relative overflow-hidden">
                 <div className="absolute inset-0">
-                    <Image src="/tifa_in_telcoff.jpeg" alt="TIFA in Restaurant" fill className="object-cover object-[75%_center]" />
+                    <Image src="/photos/tifa_in_telcoff.jpeg" alt="TIFA in Restaurant" fill className="object-cover object-[75%_center]" />
                     <div className="absolute inset-0 bg-gradient-to-r from-[#1F1F1F] via-[#1F1F1F]/80 to-[#1F1F1F]/40" />
                 </div>
                 <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-12">
@@ -334,7 +334,7 @@ function TIFAContent() {
                         <div className="reveal-left">
                             <div className="relative">
                                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[280px] h-[380px] bg-[#B6252A]/15 rounded-full blur-[80px] pointer-events-none" />
-                                <Image src="/TIFA_FRONT.png" alt="TIFA Robot" width={400} height={500} className="relative z-10 w-80 mx-auto h-auto object-contain drop-shadow-[0_20px_50px_rgba(0,0,0,0.3)]" />
+                                <Image src="/robot/tifa_front.png" alt="TIFA Robot" width={400} height={500} className="relative z-10 w-80 mx-auto h-auto object-contain drop-shadow-[0_20px_50px_rgba(0,0,0,0.3)]" />
                             </div>
                         </div>
                         <div className="reveal-right delay-200">
@@ -432,8 +432,7 @@ function TIFAContent() {
                     <div className="grid md:grid-cols-4 gap-12 mb-12">
                         <div className="md:col-span-2">
                             <div className="flex items-center gap-3 mb-6">
-                                <Image src="/tifa/logo-tifa-red.png" alt="TIFA" width={48} height={48} className="w-12 h-12" />
-                                <div><span className="text-xl font-bold">TIFA</span><p className="text-xs text-gray-500">{dict.footer.brand_tagline}</p></div>
+                                <Image src="/logo/tifa/tifa.png" alt="TIFA" width={64} height={32} className="w-16 h-8" />
                             </div>
                             <p className="text-gray-400 leading-relaxed max-w-md mb-6">{dict.footer.description}</p>
                             <Link href="/" className="inline-flex items-center gap-2 text-[#2FAEB7] font-semibold hover:gap-3 transition-all">
