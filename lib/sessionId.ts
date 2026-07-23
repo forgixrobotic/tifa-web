@@ -11,6 +11,7 @@
  */
 
 const SESSION_KEY = "tifa_ui_client_id";
+const JWT_TOKEN_KEY = "tifa_jwt_token";
 
 /**
  * Simple hash of a string to 4 hex chars.
@@ -35,7 +36,7 @@ function generateTabSuffix(): string {
  * Generate and store a unique UI Client ID for this user + tab combination.
  * Call this after successful login to bind the ID to the user.
  */
-export function initSessionUiId(userEmail: string): string {
+export function initSessionUiId(userEmail: string, token?: string): string {
     if (typeof window === "undefined") return "TFWB_SSR";
     
     const emailHash = hashTo4Hex(userEmail);
@@ -43,6 +44,9 @@ export function initSessionUiId(userEmail: string): string {
     const id = `TFWB_${emailHash}_${tabSuffix}`;
     
     sessionStorage.setItem(SESSION_KEY, id);
+    if (token) {
+        sessionStorage.setItem(JWT_TOKEN_KEY, token);
+    }
     return id;
 }
 
@@ -65,9 +69,27 @@ export function getSessionUiId(): string {
 }
 
 /**
- * Clear the session UI ID (call on logout).
+ * Get the active JWT token for this browser session.
+ */
+export function getSessionJwtToken(): string | null {
+    if (typeof window === "undefined") return null;
+    return sessionStorage.getItem(JWT_TOKEN_KEY);
+}
+
+/**
+ * Store active JWT token for this browser session.
+ */
+export function setSessionJwtToken(token: string): void {
+    if (typeof window === "undefined") return;
+    sessionStorage.setItem(JWT_TOKEN_KEY, token);
+}
+
+/**
+ * Clear the session UI ID & JWT token (call on logout).
  */
 export function clearSessionUiId(): void {
     if (typeof window === "undefined") return;
     sessionStorage.removeItem(SESSION_KEY);
+    sessionStorage.removeItem(JWT_TOKEN_KEY);
 }
+

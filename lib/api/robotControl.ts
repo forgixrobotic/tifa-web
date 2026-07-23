@@ -3,7 +3,7 @@
 // Command payload format matches h_command_log.command_payload in database
 
 import { randomUUID } from 'crypto';
-import { query, queryWithCount } from '@/lib/dbClient';
+import { query, queryWithCount, transaction } from '@/lib/dbClient';
 import { sendRobotCommand, getWsUiId, type RobotNavCommandPayload, type TeleopCommandPayload, type TeleopDoneCommandPayload, type MappingCommandPayload, type TalkCommandPayload, type MapSelectedCommandPayload, type MapDataCommandPayload } from '@/lib/wsClient';
 import type { Goal, GoalQueue, ApiResult } from '@/lib/types/database';
 
@@ -212,38 +212,41 @@ export async function sendRobotToTable(input: SendToTableInput): Promise<ApiResu
             message_id: messageId,
         };
 
-        // 4. Generate unique queue code & insert into t_goal_queue
+        // 4. Atomic transaction: insert goal_queue → WS send → rollback on WS failure
         const queueCode = `OP-${device_id}-${Date.now()}`;
 
-        const insertResult = await queryWithCount<{ goal_queue_id: number }>(
-            `INSERT INTO t_goal_queue (queue_code, map_id, device_id, priority, retry_count, status, payload, created_at)
-             VALUES ($1, $2, $3, 1, 0, 'QUEUED', $4, NOW())
-             RETURNING goal_queue_id`,
-            [queueCode, map_id, device_id, JSON.stringify(commandPayload)]
-        );
+        const { queueId, wsResult } = await transaction(async (client) => {
+            // a. Insert t_goal_queue (QUEUED)
+            const insertResult = await client.query<{ goal_queue_id: number }>(
+                `INSERT INTO t_goal_queue (queue_code, map_id, device_id, priority, retry_count, status, payload, created_at)
+                 VALUES ($1, $2, $3, 1, 0, 'QUEUED', $4, NOW())
+                 RETURNING goal_queue_id`,
+                [queueCode, map_id, device_id, JSON.stringify(commandPayload)]
+            );
 
-        const queueId = insertResult.rows[0]?.goal_queue_id;
-        if (!queueId) {
-            return { data: null, error: 'Failed to insert goal queue' };
-        }
+            const qId = insertResult.rows[0]?.goal_queue_id;
+            if (!qId) {
+                throw new Error('Failed to insert goal queue');
+            }
 
-        // 5. Send WebSocket command to robot
-        const wsResult = await sendRobotCommand(commandPayload);
+            // b. Send WebSocket command to robot
+            const wResult = await sendRobotCommand(commandPayload);
 
-        // 6. Log command in h_command_log (same format as existing DB entries)
-        await query(
-            `INSERT INTO h_command_log (device_id, command_code, command_payload, status, status_message, created_at)
-             VALUES ($1, $2, $3, $4, $5, NOW())`,
-            [
-                device_id,
-                'OP',
-                JSON.stringify(commandPayload),
-                wsResult.sent ? 'SENT' : 'QUEUED',
-                wsResult.sent
-                    ? `Robot sent to ${tasks.length} destinations`
-                    : `Command queued - WS not connected: ${wsResult.error ?? 'unknown'}`,
-            ]
-        );
+            // c. If WS failed → rollback entire transaction (prevent ghost QUEUED)
+            if (!wResult.sent) {
+                throw new Error(`WebSocket send failed: ${wResult.error ?? 'connection not available'}`);
+            }
+
+            // d. Log command in h_command_log (only if WS succeeded)
+            await client.query(
+                `INSERT INTO h_command_log (device_id, command_code, command_payload, status, status_message, created_at)
+                 VALUES ($1, $2, $3, $4, $5, NOW())`,
+                [device_id, 'OP', JSON.stringify(commandPayload), 'SENT',
+                 `Robot sent to ${tasks.length} destinations`]
+            );
+
+            return { queueId: qId, wsResult: wResult };
+        });
 
         return {
             data: {
@@ -331,38 +334,34 @@ export async function sendRobotToMove(input: SendToMoveInput): Promise<ApiResult
             message_id: messageId,
         };
 
-        // 4. Generate unique queue code & insert into t_goal_queue
+        // 4. Atomic transaction: insert goal_queue → WS send → rollback on WS failure
         const queueCode = `MOVE-${device_id}-${Date.now()}`;
 
-        const insertResult = await queryWithCount<{ goal_queue_id: number }>(
-            `INSERT INTO t_goal_queue (queue_code, map_id, device_id, priority, retry_count, status, payload, created_at)
-             VALUES ($1, $2, $3, 1, 0, 'QUEUED', $4, NOW())
-             RETURNING goal_queue_id`,
-            [queueCode, map_id, device_id, JSON.stringify(commandPayload)]
-        );
+        const { queueId, wsResult } = await transaction(async (client) => {
+            const insertResult = await client.query<{ goal_queue_id: number }>(
+                `INSERT INTO t_goal_queue (queue_code, map_id, device_id, priority, retry_count, status, payload, created_at)
+                 VALUES ($1, $2, $3, 1, 0, 'QUEUED', $4, NOW())
+                 RETURNING goal_queue_id`,
+                [queueCode, map_id, device_id, JSON.stringify(commandPayload)]
+            );
 
-        const queueId = insertResult.rows[0]?.goal_queue_id;
-        if (!queueId) {
-            return { data: null, error: 'Failed to insert goal queue' };
-        }
+            const qId = insertResult.rows[0]?.goal_queue_id;
+            if (!qId) throw new Error('Failed to insert goal queue');
 
-        // 5. Send WebSocket command to robot
-        const wsResult = await sendRobotCommand(commandPayload);
+            const wResult = await sendRobotCommand(commandPayload);
+            if (!wResult.sent) {
+                throw new Error(`WebSocket send failed: ${wResult.error ?? 'connection not available'}`);
+            }
 
-        // 6. Log command in h_command_log
-        await query(
-            `INSERT INTO h_command_log (device_id, command_code, command_payload, status, status_message, created_at)
-             VALUES ($1, $2, $3, $4, $5, NOW())`,
-            [
-                device_id,
-                'MOVE',
-                JSON.stringify(commandPayload),
-                wsResult.sent ? 'SENT' : 'QUEUED',
-                wsResult.sent
-                    ? `Robot MOVE command sent to ${goal_type}`
-                    : `Command queued - WS not connected: ${wsResult.error ?? 'unknown'}`,
-            ]
-        );
+            await client.query(
+                `INSERT INTO h_command_log (device_id, command_code, command_payload, status, status_message, created_at)
+                 VALUES ($1, $2, $3, $4, $5, NOW())`,
+                [device_id, 'MOVE', JSON.stringify(commandPayload), 'SENT',
+                 `Robot MOVE command sent to ${goal_type}`]
+            );
+
+            return { queueId: qId, wsResult: wResult };
+        });
 
         return {
             data: {
@@ -433,13 +432,71 @@ export async function getActiveRobotTasks(deviceId: number): Promise<ApiResult<G
 
 /**
  * Manually mark a task as DONE.
+ * - QUEUED: allowed (command stuck, manual override / cleanup)
+ * - IN_PROGRESS: allowed but validates robot is IDLE first
+ * - DONE/FAILED/CANCELLED: rejected (already finished)
  */
 export async function markTaskAsDone(goalQueueId: number): Promise<ApiResult<boolean>> {
     try {
+        const queueRows = await query<{ device_id: number; status: string }>(
+            `SELECT device_id, status FROM t_goal_queue WHERE goal_queue_id = $1`,
+            [goalQueueId]
+        );
+
+        if (queueRows.length === 0) {
+            return { data: null, error: 'Task not found' };
+        }
+
+        const { device_id, status } = queueRows[0];
+
+        // Reject only tasks that are already finalized
+        if (status === 'DONE' || status === 'FAILED' || status === 'CANCELLED') {
+            return { data: null, error: `Task sudah berstatus '${status}', tidak bisa diubah lagi` };
+        }
+
+        // Validate robot state: check h_state for all non-final statuses
+        const stateRows = await query<{ robot_mode: string; recorded_at: string }>(
+            `SELECT robot_mode, recorded_at
+             FROM h_state WHERE device_id = $1
+             ORDER BY recorded_at DESC LIMIT 1`,
+            [device_id]
+        );
+
+        if (status === 'QUEUED') {
+            // Task baru (< 30 detik) — blokir, belum sempat diproses robot
+            const ageRows = await query<{ created_at: string }>(
+                `SELECT created_at FROM t_goal_queue WHERE goal_queue_id = $1`, [goalQueueId]
+            );
+            if (ageRows.length > 0) {
+                const ageSeconds = (Date.now() - new Date(ageRows[0].created_at).getTime()) / 1000;
+                if (ageSeconds < 30) {
+                    return { data: null, error: `Task baru ${Math.round(ageSeconds)} detik. Tunggu robot memproses.` };
+                }
+            }
+            // Task >= 30 detik — cek status robot
+            if (stateRows.length > 0) {
+                const { robot_mode } = stateRows[0];
+                if (robot_mode !== 'IDLE') {
+                    return { data: null, error: `Task QUEUED tapi robot masih '${robot_mode}'. Tunggu IDLE.` };
+                }
+            }
+            // Robot offline / IDLE — izinkan cleanup manual
+        } else if (status === 'IN_PROGRESS') {
+            if (stateRows.length > 0) {
+                const { robot_mode, recorded_at } = stateRows[0];
+                const secondsSinceUpdate = (Date.now() - new Date(recorded_at).getTime()) / 1000;
+
+                if (robot_mode !== 'IDLE') {
+                    return { data: null, error: `Robot masih '${robot_mode}', tunggu IDLE` };
+                }
+                if (secondsSinceUpdate > 60) {
+                    return { data: null, error: `Data robot basi ${Math.round(secondsSinceUpdate)} detik` };
+                }
+            }
+        }
+
         await query(
-            `UPDATE t_goal_queue
-             SET status = 'DONE', finished_at = NOW()
-             WHERE goal_queue_id = $1`,
+            `UPDATE t_goal_queue SET status = 'DONE', finished_at = NOW() WHERE goal_queue_id = $1`,
             [goalQueueId]
         );
         return { data: true, error: null };

@@ -159,7 +159,7 @@ export type TalkCommandPayload = {
 
 import type { WebSocket as WSClass } from 'ws';
 import { query } from '@/lib/dbClient';
-import { getSettings } from '@/lib/settings';
+import { getSettings, saveSettings } from '@/lib/settings';
 
 // ============================================
 // WEBSOCKET CLIENT (lazy initialization)
@@ -175,6 +175,11 @@ let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let isListening = false;      // tracks robot voice listening state
 let WebSocketClass: typeof WSClass | null = null;
 let wsModuleLoaded = false;
+
+// Server-side JWT token storage (client sends it via Authorization header on turn-on)
+// wsClient.ts runs on the server (Node.js), not browser — sessionStorage is unavailable.
+// Also persisted to settings.json so it survives Next.js hot-reload.
+let serverJwtToken: string | null = null;
 
 async function loadWebSocketModule() {
     if (wsModuleLoaded) return WebSocketClass;
@@ -204,19 +209,22 @@ function sendSessionIdentify() {
 
     const settings = getSettings();
     const uiId = settings.uiId;
+    // Try in-memory first, then settings.json (persists across hot-reload)
+    const token = serverJwtToken || settings.jwtToken;
 
     const siPayload = {
         code: 'SI',
         data: {
             type: 'UI',
-            ui_id: uiId, // Server requires 'ui_id' for SI handshake validation
+            ui_id: uiId,
+            token: token || undefined,
         },
     };
 
     try {
         wsInstance.send(JSON.stringify(siPayload));
 
-        console.log(`[WS Robot] 📤 SI (Session Identify) sent: ui_id=${uiId}`);
+        console.log(`[WS Robot] 📤 SI (Session Identify) sent: ui_id=${uiId}${token ? ' (with JWT Token)' : ''}`);
     } catch (err) {
 
         console.error('[WS Robot] Failed to send SI:', err);
@@ -393,6 +401,83 @@ async function connectWs() {
                     } catch (err) {
 
                         console.error('[WS Robot] Failed to log ERROR to database:', err);
+                    }
+                }
+                // Handle STATUS dari Robot — update h_state + progress task queue
+                else if (msg.code === 'STATUS') {
+                    const robotId = msg.data?.robot_id;
+                    const robotStatus = msg.data?.status;
+                    if (robotId && robotStatus) {
+                        try {
+                            const deviceRows = await query<{ device_id: number }>(
+                                `SELECT device_id FROM m_device WHERE device_code = $1 LIMIT 1`, [robotId]
+                            );
+                            const deviceId = deviceRows[0]?.device_id;
+                            if (deviceId) {
+                                await query(
+                                    `INSERT INTO h_state (device_id, robot_mode, robot_activity, recorded_at)
+                                     VALUES ($1, $2, $3, NOW())`,
+                                    [deviceId, robotStatus, robotStatus]
+                                );
+                                console.log(`[WS Robot] 🔄 Status update: ${robotId} → ${robotStatus}`);
+
+                                // Jika robot mulai bergerak → update QUEUED → IN_PROGRESS
+                                if (robotStatus === 'MOVING') {
+                                    await query(
+                                        `UPDATE t_goal_queue SET status = 'IN_PROGRESS', started_at = NOW()
+                                         WHERE goal_queue_id = (
+                                           SELECT goal_queue_id FROM t_goal_queue
+                                           WHERE device_id = $1 AND status = 'QUEUED'
+                                           ORDER BY created_at DESC LIMIT 1
+                                         )`,
+                                        [deviceId]
+                                    );
+                                }
+                            }
+                        } catch (err) {
+                            console.error('[WS Robot] Failed to save STATUS:', err);
+                        }
+                    }
+                }
+                // Handle POSITION dari Robot
+                else if (msg.code === 'POSITION') {
+                    const robotId = msg.data?.robot_id;
+                    const { x, y, yaw } = msg.data || {};
+                    if (robotId && x !== undefined) {
+                        try {
+                            const deviceRows = await query<{ device_id: number }>(
+                                `SELECT device_id FROM m_device WHERE device_code = $1 LIMIT 1`, [robotId]
+                            );
+                            const deviceId = deviceRows[0]?.device_id;
+                            if (deviceId) {
+                                await query(
+                                    `INSERT INTO h_position (device_id, x, y, yaw, recorded_at)
+                                     VALUES ($1, $2, $3, $4, NOW())`,
+                                    [deviceId, x, y, yaw ?? 0]
+                                );
+                            }
+                        } catch { /* skip position errors */ }
+                    }
+                }
+                // Handle BATTERY dari Robot
+                else if (msg.code === 'BATTERY') {
+                    const robotId = msg.data?.robot_id;
+                    const batteryPercent = msg.data?.battery_percent ?? msg.data?.battery_level;
+                    const voltage = msg.data?.voltage;
+                    if (robotId && batteryPercent !== undefined) {
+                        try {
+                            const deviceRows = await query<{ device_id: number }>(
+                                `SELECT device_id FROM m_device WHERE device_code = $1 LIMIT 1`, [robotId]
+                            );
+                            const deviceId = deviceRows[0]?.device_id;
+                            if (deviceId) {
+                                await query(
+                                    `INSERT INTO h_battery (device_id, battery_percent, voltage, recorded_at)
+                                     VALUES ($1, $2, $3, NOW())`,
+                                    [deviceId, batteryPercent, voltage ?? null]
+                                );
+                            }
+                        } catch { /* skip battery errors */ }
                     }
                 }
                 // Handle ACK, INIT, and DISCONNECT dari Robot
@@ -610,13 +695,21 @@ export function getListeningStatus(): boolean {
 
 /**
  * Explicitly trigger a WebSocket connection (e.g., after login or settings change)
+ * @param jwtToken JWT token for WS authentication (from client-side sessionStorage)
  */
-export async function manualConnectWs(): Promise<void> {
+export async function manualConnectWs(jwtToken?: string | null): Promise<void> {
     const settings = getSettings();
     if (!settings.isWsTurnedOn) {
         console.log('[WS Robot] 🛑 manualConnectWs skipped because WS is turned OFF.');
         cleanupOldConnection();
         return;
+    }
+
+    if (jwtToken) {
+        serverJwtToken = jwtToken;
+        getSettings(); // ensure settings loaded
+        saveSettings({ jwtToken }); // persist to file for hot-reload survival
+        console.log('[WS Robot] 🔑 JWT token stored for WS authentication');
     }
 
     if (wsInstance && wsInstance.readyState === 1) {
@@ -630,6 +723,8 @@ export async function manualConnectWs(): Promise<void> {
  */
 export function disconnectWs(): void {
     console.log('[WS Robot] 🛑 WebSocket manually disconnected by user.');
+    serverJwtToken = null;
+    saveSettings({ jwtToken: undefined });
     cleanupOldConnection();
 }
 

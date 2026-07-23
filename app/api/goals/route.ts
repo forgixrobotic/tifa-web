@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getGoalsByMap, getActiveGoalQueues, countGoalsByType, getGoalQueue, createGoal, updateGoal, deleteGoal } from '@/lib/api/goals';
+import { getCurrentUser } from '@/lib/api/auth';
+import { rateLimiter } from '@/lib/rateLimiter';
 import { query } from '@/lib/dbClient';
 
 export async function GET(request: Request) {
@@ -7,6 +9,10 @@ export async function GET(request: Request) {
     const action = searchParams.get('action');
     const mapId = searchParams.get('mapId');
     const deviceId = searchParams.get('deviceId');
+
+    // Extract companyId from session
+    const user = await getCurrentUser();
+    const companyId = user.data?.role === 'super_admin' ? undefined : user.data?.companyId;
 
     if (action === 'by-map' && mapId) {
         const result = await getGoalsByMap(parseInt(mapId, 10));
@@ -29,7 +35,7 @@ export async function GET(request: Request) {
     }
 
     if (action === 'active-queues') {
-        const result = await getActiveGoalQueues();
+        const result = await getActiveGoalQueues(companyId);
         return NextResponse.json(result);
     }
 
@@ -47,6 +53,23 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+    const clientIp = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || '127.0.0.1';
+    const rateCheck = rateLimiter.check(`goals:post:${clientIp}`, 30, 60000);
+
+    if (!rateCheck.allowed) {
+        return NextResponse.json(
+            { error: `Rate limit exceeded. Please wait ${rateCheck.retryAfterSec} seconds.` },
+            {
+                status: 429,
+                headers: {
+                    'X-RateLimit-Limit': String(rateCheck.limit),
+                    'X-RateLimit-Remaining': String(rateCheck.remaining),
+                    'Retry-After': String(rateCheck.retryAfterSec),
+                },
+            }
+        );
+    }
+
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
 

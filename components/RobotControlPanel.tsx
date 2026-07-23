@@ -338,7 +338,11 @@ export default function RobotControlPanel({ selectedGroup }: Props) {
 
     const handleMarkDone = async (queueId: number) => {
         try {
-            await markTaskAsDone(queueId);
+            const result = await markTaskAsDone(queueId);
+            if (result.error) {
+                setToast({ type: "error", message: result.error });
+                return;
+            }
             setToast({ type: "success", message: "Tugas ditandai selesai." });
             loadActiveTasks();
             if (showHistory) {

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useLanguage } from "@/components/LanguageProvider";
+import { getSessionJwtToken } from "@/lib/sessionId";
 
 type SessionStatus = {
     isWsTurnedOn: boolean;
@@ -42,9 +43,12 @@ export default function WebSocketSessionControl({ currentUserEmail }: { currentU
         setActionLoading(true);
         setError(null);
         try {
+            const token = getSessionJwtToken();
+            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
             const res = await fetch('/api/ws/session', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
                 body: JSON.stringify({ action })
             });
             const data = await res.json();

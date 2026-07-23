@@ -250,7 +250,8 @@ export type UpdateRobotInput = Partial<CreateRobotInput>;
 export type AuthUser = {
     id: string;
     email: string;
-    role: 'admin' | 'operator';
+    role: 'super_admin' | 'admin' | 'operator';
+    companyId?: number;
     user_metadata?: {
         role?: string;
     };
@@ -260,6 +261,8 @@ export type SignInResult = {
     success: boolean;
     error?: string;
     user?: AuthUser;
+    token?: string;
+    sessionId?: string;
 };
 
 export type SignUpResult = {

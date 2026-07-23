@@ -86,15 +86,22 @@ export async function getGoalQueue(deviceId: number): Promise<ApiResult<GoalQueu
 /**
  * Get active goal queues (QUEUED or IN_PROGRESS)
  */
-export async function getActiveGoalQueues(): Promise<ApiResult<GoalQueue[]>> {
+export async function getActiveGoalQueues(companyId?: number): Promise<ApiResult<GoalQueue[]>> {
     try {
-        const data = await query<GoalQueue>(
-            `SELECT goal_queue_id, queue_code, map_id, device_id, requested_by, priority,
+        let sql = `SELECT goal_queue_id, queue_code, map_id, device_id, requested_by, priority,
                     retry_count, status, fail_reason, created_at, started_at, finished_at, payload
              FROM t_goal_queue
-             WHERE status IN ('QUEUED', 'IN_PROGRESS')
-             ORDER BY priority ASC`
-        );
+             WHERE status IN ('QUEUED', 'IN_PROGRESS')`;
+        const params: number[] = [];
+
+        if (companyId) {
+            sql += ` AND device_id IN (SELECT device_id FROM m_device WHERE company_id = $1)`;
+            params.push(companyId);
+        }
+
+        sql += ` ORDER BY priority ASC`;
+
+        const data = await query<GoalQueue>(sql, params.length > 0 ? params : undefined);
 
         return {
             data,

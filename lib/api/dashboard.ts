@@ -7,10 +7,11 @@ import type { DashboardStats, ApiResult } from '@/lib/types/database';
 
 /**
  * Get all dashboard statistics in one call
+ * @param companyId - If provided, filters all stats to this company. undefined = all companies (SUPER_ADMIN).
  */
-export async function getDashboardStats(): Promise<ApiResult<DashboardStats>> {
+export async function getDashboardStats(companyId?: number): Promise<ApiResult<DashboardStats>> {
     try {
-        // Fetch all stats in parallel
+        // Fetch all stats in parallel, scoped by company
         const [
             robotCountResult,
             batteryStatsResult,
@@ -18,11 +19,11 @@ export async function getDashboardStats(): Promise<ApiResult<DashboardStats>> {
             commandsResult,
             recentRobotsResult,
         ] = await Promise.all([
-            getRobotCount(),
-            getBatteryStats(),
-            getErrorCount(),
-            getCommandLogs(20),
-            getRecentRobots(5),
+            getRobotCount(companyId),
+            getBatteryStats(companyId),
+            getErrorCount(companyId),
+            getCommandLogs(20, undefined, companyId),
+            getRecentRobots(5, companyId),
         ]);
 
         const stats: DashboardStats = {
@@ -42,3 +43,4 @@ export async function getDashboardStats(): Promise<ApiResult<DashboardStats>> {
         };
     }
 }
+

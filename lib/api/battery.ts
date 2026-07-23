@@ -38,21 +38,31 @@ export async function getBatteryHistory(
  * Get latest battery readings across all devices
  */
 export async function getLatestBatteries(
-    limit: number = 200
+    limit: number = 200,
+    companyId?: number
 ): Promise<ApiResult<BatteryRow[]>> {
     try {
-        const rows = await query<BatteryRow>(
-            `SELECT h_battery_id,
-                    device_id,
-                    COALESCE(((raw_payload->'data')->>'battery_percent')::numeric, battery_percent) AS battery_percent,
-                    voltage,
-                    recorded_at,
-                    raw_payload
-             FROM h_battery
-             ORDER BY recorded_at DESC
-             LIMIT $1`,
-            [limit]
-        );
+        let sql = `
+            SELECT hb.h_battery_id,
+                    hb.device_id,
+                    COALESCE(((hb.raw_payload->'data'->>'battery_percent')::numeric), hb.battery_percent) AS battery_percent,
+                    hb.voltage,
+                    hb.recorded_at,
+                    hb.raw_payload
+             FROM h_battery hb
+        `;
+        const params: (string | number)[] = [];
+        let paramIdx = 1;
+
+        if (companyId) {
+            sql += ` JOIN m_device d ON hb.device_id = d.device_id WHERE d.company_id = $${paramIdx++}`;
+            params.push(companyId);
+        }
+
+        sql += ` ORDER BY hb.recorded_at DESC LIMIT $${paramIdx}`;
+        params.push(limit);
+
+        const rows = await query<BatteryRow>(sql, params);
 
         return { data: rows, error: null };
     } catch (err: unknown) {
@@ -93,8 +103,8 @@ export async function getLatestBattery(
 /**
  * Calculate battery statistics (average and buckets)
  */
-export async function getBatteryStats(): Promise<ApiResult<{ avgBattery: number | null; buckets: BatteryBuckets }>> {
-    const { data: batteryData, error } = await getLatestBatteries(200);
+export async function getBatteryStats(companyId?: number): Promise<ApiResult<{ avgBattery: number | null; buckets: BatteryBuckets }>> {
+    const { data: batteryData, error } = await getLatestBatteries(200, companyId);
 
     if (error || !batteryData) {
         return {

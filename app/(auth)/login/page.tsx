@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { signIn } from "@/lib/api";
-import { initSessionUiId } from "@/lib/sessionId";
+import { initSessionUiId, setSessionJwtToken } from "@/lib/sessionId";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -32,8 +32,13 @@ export default function LoginPage() {
       return;
     }
 
-    // Generate unique UI Client ID for this user + tab
-    initSessionUiId(email);
+    // Save JWT token for WebSocket authentication
+    if (result.token) {
+        setSessionJwtToken(result.token);
+    }
+
+    // Generate unique UI Client ID for this user + tab (include JWT token for WS auth)
+    initSessionUiId(email, result.token);
 
     router.push("/dashboard");
   };

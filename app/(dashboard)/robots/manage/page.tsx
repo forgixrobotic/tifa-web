@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
-import { getRobots, createRobot, updateRobot, deleteRobot, type Robot } from "@/lib/api";
+import { getRobots, createRobot, updateRobot, deleteRobot, getCurrentUser, type Robot } from "@/lib/api";
 import { groupRobots, type GroupedRobot } from "@/lib/utils/robotGrouping";
 
 export default function ManageRobotsPage() {
@@ -10,6 +10,7 @@ export default function ManageRobotsPage() {
     const [groupedRobots, setGroupedRobots] = useState<GroupedRobot[]>([]);
     const [loading, setLoading] = useState(true);
     const [formOpen, setFormOpen] = useState(false);
+    const [userRole, setUserRole] = useState<string | null>(null);
     const [editingRbId, setEditingRbId] = useState<number | null>(null);
     const [editingUiId, setEditingUiId] = useState<number | null>(null);
     const [name, setName] = useState("");
@@ -38,6 +39,7 @@ export default function ManageRobotsPage() {
     useEffect(() => {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         void loadRobots();
+        getCurrentUser().then(res => { if (res.data) setUserRole(res.data.role); });
     }, []);
 
     const resetForm = () => {
@@ -54,6 +56,11 @@ export default function ManageRobotsPage() {
         e.preventDefault();
         setError(null);
         setSuccess(null);
+
+        if (userRole !== 'admin' && userRole !== 'super_admin') {
+            setError("Only administrators can register or edit robots.");
+            return;
+        }
 
         if (!name || !code) {
             setError("Name and device code are required.");
@@ -176,19 +183,21 @@ export default function ManageRobotsPage() {
                         Administrative controls for robot devices
                     </p>
                 </div>
-                <button
-                    type="button"
-                    onClick={() => {
-                        resetForm();
-                        setFormOpen(true);
-                    }}
-                    className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-900/20 hover:bg-blue-500 transition-all border border-blue-300 dark:border-blue-500/30"
-                >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                    </svg>
-                    Register New Node
-                </button>
+                {userRole === 'admin' && (
+                    <button
+                        type="button"
+                        onClick={() => {
+                            resetForm();
+                            setFormOpen(true);
+                        }}
+                        className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-900/20 hover:bg-blue-500 transition-all border border-blue-300 dark:border-blue-500/30"
+                    >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                        Register New Node
+                    </button>
+                )}
             </div>
 
             {/* Success Message */}
@@ -351,26 +360,30 @@ export default function ManageRobotsPage() {
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                                             <div className="flex items-center justify-end gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleEdit(group)}
-                                                    className="p-1.5 rounded-lg text-txt-sec hover:bg-blue-100 dark:bg-blue-500/10 hover:text-blue-700 dark:text-blue-400 transition-colors"
-                                                    title="Edit"
-                                                >
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                                    </svg>
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleDelete(group)}
-                                                    className="p-1.5 rounded-lg text-txt-sec hover:bg-rose-100 dark:bg-rose-500/10 hover:text-rose-700 dark:text-rose-400 transition-colors"
-                                                    title="Delete"
-                                                >
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                    </svg>
-                                                </button>
+                                                {userRole === 'admin' && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleEdit(group)}
+                                                        className="p-1.5 rounded-lg text-txt-sec hover:bg-blue-100 dark:bg-blue-500/10 hover:text-blue-700 dark:text-blue-400 transition-colors"
+                                                        title="Edit"
+                                                    >
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                        </svg>
+                                                    </button>
+                                                )}
+                                                {userRole === 'admin' && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleDelete(group)}
+                                                        className="p-1.5 rounded-lg text-txt-sec hover:bg-rose-100 dark:bg-rose-500/10 hover:text-rose-700 dark:text-rose-400 transition-colors"
+                                                        title="Delete"
+                                                    >
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                        </svg>
+                                                    </button>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>

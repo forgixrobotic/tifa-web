@@ -354,6 +354,10 @@ export function getMapImageUrl(mapId: number): string {
     return `${BASE_URL}/maps/${mapId}/image`;
 }
 
+export function getMapYamlUrl(mapId: number): string {
+    return `${BASE_URL}/maps/${mapId}/yaml`;
+}
+
 // ============================================
 // AUTH OPERATIONS
 // ============================================
