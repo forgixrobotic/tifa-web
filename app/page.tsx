@@ -78,7 +78,7 @@ function DiagonalContent() {
       <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? "bg-white/95 backdrop-blur-md shadow-lg py-2" : "bg-transparent py-4"} ${isNavbarVisible ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0 pointer-events-none"}`}>
         <div className="max-w-7xl mx-auto px-6 lg:px-12 flex items-center justify-between">
           <Link href="/" onClick={scrollToTop} className="flex items-center group">
-            <Image src="/logo/logo diagonal_White.png" alt="Diagonal Robotic Solution" width={250} height={250} className={`h-10 lg:h-12 w-auto object-contain transition-all ${isScrolled ? 'brightness-0' : ''}`} priority />
+            <Image src="/logo/diagonal/diagonal_white.png" alt="Diagonal Robotic Solution" width={250} height={250} className={`h-10 lg:h-12 w-auto object-contain transition-all ${isScrolled ? 'brightness-0' : ''}`} priority />
           </Link>
 
           <div className="hidden lg:flex items-center gap-1">
@@ -107,7 +107,7 @@ function DiagonalContent() {
         <div className={`absolute top-0 right-0 h-full w-72 bg-white transition-transform duration-300 flex flex-col ${isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}>
           {/* Mobile Menu Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-100">
-            <Image src="/logo/WhatsApp Image 2026-04-27 at 08.20.58.jpeg" alt="Diagonal Robotic Solution" width={110} height={25} className="h-6 w-auto object-contain" />
+            <Image src="/logo/diagonal/diagonal_black_bg.png" alt="Diagonal Robotic Solution" width={110} height={25} className="h-6 w-auto object-contain" />
             <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 -mr-2 text-gray-500 hover:text-gray-900 transition-colors rounded-lg hover:bg-gray-100">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -180,7 +180,7 @@ function DiagonalContent() {
           <div className="grid lg:grid-cols-2 gap-16 items-center">
             <div className="reveal-zoom">
               <div className="bg-white rounded-2xl p-3 shadow-[0_8px_30px_rgba(0,0,0,0.12)]">
-                <Image src="/diagonal/about-us.png" alt="Diagonal Team" width={700} height={470} className="w-full h-auto object-cover rounded-xl" />
+                <Image src="/photos/about-us.png" alt="Diagonal Team" width={700} height={470} className="w-full h-auto object-cover rounded-xl" />
               </div>
             </div>
             <div className="reveal-blur delay-200">
@@ -199,8 +199,8 @@ function DiagonalContent() {
           <div className="mt-20 pt-12 border-t border-gray-200 reveal-slide-up">
             <p className="text-center text-sm text-gray-500 mb-8 reveal-scale">{dict.about.supported_by}</p>
             <div className="flex flex-wrap justify-center items-center gap-12">
-              <div className="reveal-scale" style={{ transitionDelay: '0.15s' }}><Image src="/diagonal/logo-telkom-hitam.png" alt="Telkom University" width={150} height={50} className="h-12 w-auto object-contain" /></div>
-              <div className="reveal-scale" style={{ transitionDelay: '0.3s' }}><Image src="/diagonal/logo-fte-telkom.png" alt="Fakultas Teknik Elektro" width={200} height={50} className="h-12 w-auto object-contain" /></div>
+              <div className="reveal-scale" style={{ transitionDelay: '0.15s' }}><Image src="/logo/partners/telkom_black.png" alt="Telkom University" width={150} height={50} className="h-12 w-auto object-contain" /></div>
+              <div className="reveal-scale" style={{ transitionDelay: '0.3s' }}><Image src="/logo/partners/fte_telkom.png" alt="Fakultas Teknik Elektro" width={200} height={50} className="h-12 w-auto object-contain" /></div>
             </div>
           </div>
         </div>
@@ -217,21 +217,21 @@ function DiagonalContent() {
           <div className="grid md:grid-cols-3 gap-8">
             <div className="reveal delay-100 group bg-white rounded-2xl p-8 shadow-lg shadow-gray-100 border border-gray-100 hover:shadow-[0_0_40px_6px_rgba(34,211,238,0.6)] hover:border-cyan-400 transition-all duration-300 hover:-translate-y-1">
               <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-[#1A1A1A] to-[#3A3A3A] flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                <Image src="/diagonal/icon-briefcase.png" alt="Briefcase" width={28} height={28} className="w-7 h-7 object-contain" />
+                <Image src="/icons/icon-briefcase.png" alt="Briefcase" width={28} height={28} className="w-7 h-7 object-contain" />
               </div>
               <h3 className="text-xl font-bold text-[#1A1A1A] mb-3">{dict.services.card_1.title}</h3>
               <p className="text-gray-600 text-sm leading-relaxed">{dict.services.card_1.description}</p>
             </div>
             <div className="reveal delay-200 group bg-white rounded-2xl p-8 shadow-lg shadow-gray-100 border border-gray-100 hover:shadow-[0_0_40px_6px_rgba(34,211,238,0.6)] hover:border-cyan-400 transition-all duration-300 hover:-translate-y-1">
               <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-[#1A1A1A] to-[#3A3A3A] flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                <Image src="/diagonal/icon-cpu.png" alt="CPU" width={28} height={28} className="w-7 h-7 object-contain" />
+                <Image src="/icons/icon-cpu.png" alt="CPU" width={28} height={28} className="w-7 h-7 object-contain" />
               </div>
               <h3 className="text-xl font-bold text-[#1A1A1A] mb-3">{dict.services.card_2.title}</h3>
               <p className="text-gray-600 text-sm leading-relaxed">{dict.services.card_2.description}</p>
             </div>
             <div className="reveal delay-300 group bg-white rounded-2xl p-8 shadow-lg shadow-gray-100 border border-gray-100 hover:shadow-[0_0_40px_6px_rgba(34,211,238,0.6)] hover:border-cyan-400 transition-all duration-300 hover:-translate-y-1">
               <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-[#1A1A1A] to-[#3A3A3A] flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                <Image src="/diagonal/icon-report.png" alt="Report" width={28} height={28} className="w-7 h-7 object-contain" />
+                <Image src="/icons/icon-report.png" alt="Report" width={28} height={28} className="w-7 h-7 object-contain" />
               </div>
               <h3 className="text-xl font-bold text-[#1A1A1A] mb-3">{dict.services.card_3.title}</h3>
               <p className="text-gray-600 text-sm leading-relaxed">{dict.services.card_3.description}</p>
@@ -259,7 +259,7 @@ function DiagonalContent() {
                 <span className="text-xs text-gray-400 font-medium tracking-wide">{dict.products.category_amr}</span>
               </div>
               <div className="pt-16 pb-8 px-8 bg-gradient-to-b from-[#f8f9fa] to-[#e9ecef] flex items-center justify-center h-[280px]">
-                <Image src="/TIFA_FRONT.png" alt="TIFA Robot" width={220} height={280} className="w-auto h-56 object-contain group-hover:scale-105 transition-transform duration-500 drop-shadow-xl" />
+                <Image src="/robot/tifa_front.png" alt="TIFA Robot" width={220} height={280} className="w-auto h-56 object-contain group-hover:scale-105 transition-transform duration-500 drop-shadow-xl" />
               </div>
               <div className="p-8 flex flex-col flex-grow">
                 <h3 className="text-xl font-bold mb-2 text-white min-h-[56px]">{dict.products.tifa.name}</h3>
@@ -339,7 +339,7 @@ function DiagonalContent() {
           <div className="grid lg:grid-cols-2 gap-8">
             <div className="reveal delay-200">
               <div className="relative bg-gradient-to-br from-[#2a2a2a] to-[#1A1A1A] rounded-3xl overflow-hidden border border-white/10 p-8">
-                <div className="relative mb-8"><Image src="/TIFA_HEAD_NEW.png" alt="TIFA Head" width={400} height={300} className="w-full h-auto object-contain rounded-2xl" /></div>
+                <div className="relative mb-8"><Image src="/robot/tifa_head_new.png" alt="TIFA Head" width={400} height={300} className="w-full h-auto object-contain rounded-2xl" /></div>
                 <div className="mb-8">
                   <h3 className="text-4xl md:text-5xl font-bold tracking-wide mb-2">{dict.tifa_featured.card_title}</h3>
                   <p className="text-gray-500 text-sm">{dict.tifa_featured.card_subtitle}</p>
@@ -413,7 +413,7 @@ function DiagonalContent() {
           <div className="grid md:grid-cols-4 gap-12 mb-12">
             <div className="md:col-span-2">
               <div className="flex items-center gap-3 mb-6">
-                <Image src="/logo/logo diagonal_White.png" alt="Diagonal Robotic Solution" width={280} height={80} className="h-12 lg:h-14 w-auto object-contain" />
+                <Image src="/logo/diagonal/diagonal_white.png" alt="Diagonal Robotic Solution" width={280} height={80} className="h-12 lg:h-14 w-auto object-contain" />
               </div>
               <p className="text-gray-400 max-w-sm leading-relaxed">{dict.footer.description}</p>
             </div>

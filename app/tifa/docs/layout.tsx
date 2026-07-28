@@ -79,10 +79,10 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
 
                         <Link href="/tifa" className="docs-logo-link">
                             <Image
-                                src="/tifa/logo-tifa-red.png"
+                                src="/logo/tifa/tifa.png"
                                 alt="TIFA"
-                                width={36}
-                                height={36}
+                                width={80}
+                                height={40}
                                 className="docs-logo-icon"
                             />
                             <span className="docs-logo-text">TIFA Docs</span>

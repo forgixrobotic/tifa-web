@@ -98,7 +98,7 @@ export default function DiagonalNavbar({ theme = 'diagonal' }: DiagonalNavbarPro
                     <Link href={isTifa ? "/tifa" : "/"} className="flex items-center gap-3 group">
                         {isTifa ? (
                             <Image
-                                src="/tifa/logo-tifa-full.png"
+                                src="/logo/tifa/tifa_full.png"
                                 alt="TIFA Logo"
                                 width={194}
                                 height={86}
@@ -107,7 +107,7 @@ export default function DiagonalNavbar({ theme = 'diagonal' }: DiagonalNavbarPro
                             />
                         ) : (
                             <Image
-                                src="/logo/logo diagonal_White.png"
+                                src="/logo/diagonal/diagonal_white.png"
                                 alt="Diagonal Robotics"
                                 width={180}
                                 height={50}
