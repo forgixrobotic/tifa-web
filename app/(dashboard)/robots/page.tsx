@@ -124,7 +124,7 @@ export default function RobotsListPage() {
           <p className="text-xs font-medium text-emerald-500/70 uppercase tracking-widest">{dict.dashboard.robots.online}</p>
           <div className="flex items-center gap-2 mt-1">
             <span className="relative flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className=" absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
             </span>
             <p className="text-2xl font-bold text-txt-main tracking-tight">{onlineCount}</p>
@@ -147,7 +147,7 @@ export default function RobotsListPage() {
               <div className="w-12 h-12 rounded-full border-4 border-slate-800 border-t-blue-500 animate-spin"></div>
               <div className="absolute inset-0 rounded-full border-4 border-slate-800 opacity-20"></div>
             </div>
-            <span className="text-xs uppercase tracking-widest animate-pulse">{dict.dashboard.robots.loading}</span>
+            <span className="text-xs uppercase tracking-widest ">{dict.dashboard.robots.loading}</span>
           </div>
         </div>
       ) : groupedRobots.length === 0 ? (

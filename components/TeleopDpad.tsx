@@ -617,7 +617,7 @@ export default function TeleopDpad({ selectedGroup, onDone }: Props) {
                 {icon}
                 <span className="text-[10px] font-medium">{label}</span>
                 {isActive && (
-                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-accent animate-pulse shadow-[0_0_8px_rgba(34,211,238,0.8)]" />
+                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-accent  shadow-[0_0_8px_rgba(34,211,238,0.8)]" />
                 )}
             </button>
         );
@@ -709,7 +709,7 @@ export default function TeleopDpad({ selectedGroup, onDone }: Props) {
                                 className={`
                                     w-full h-full flex flex-col items-center justify-center gap-1 rounded-full border-2 transition-all duration-150 select-none
                                     ${activeDirection
-                                        ? "bg-rose-500/20 border-rose-500 text-rose-500 animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.3)]"
+                                        ? "bg-rose-500/20 border-rose-500 text-rose-500  shadow-[0_0_15px_rgba(239,68,68,0.3)]"
                                         : "bg-elevated border-border-base text-txt-sec hover:border-rose-400 hover:text-rose-500"
                                     }
                                 `}
@@ -769,7 +769,7 @@ export default function TeleopDpad({ selectedGroup, onDone }: Props) {
                     {activeDirection && (
                         <div className="flex flex-col gap-2 py-2.5 px-3 rounded-xl bg-accent/10 border border-accent/30 animate-in fade-in slide-in-from-bottom-2">
                             <div className="flex items-center justify-center gap-2">
-                                <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
+                                <span className="w-2 h-2 rounded-full bg-accent " />
                                 <span className="text-xs font-semibold text-accent">
                                     {t.holding} {t[activeDirection]}
                                 </span>
@@ -840,7 +840,7 @@ export default function TeleopDpad({ selectedGroup, onDone }: Props) {
                             </div>
                             {isMapping && (
                                 <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-500/20 border border-rose-400 dark:border-rose-500/40">
-                                    <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+                                    <span className="w-2 h-2 rounded-full bg-rose-500 " />
                                     <span className="text-[10px] font-bold text-rose-700 dark:text-rose-300 uppercase tracking-wider">Recording</span>
                                 </span>
                             )}
@@ -977,7 +977,7 @@ export default function TeleopDpad({ selectedGroup, onDone }: Props) {
                             </div>
                             {isTalkActive && (
                                 <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-accent/20 border border-accent/40">
-                                    <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
+                                    <span className="w-2 h-2 rounded-full bg-accent " />
                                     <span className="text-[10px] font-bold text-accent uppercase tracking-wider">Listening</span>
                                 </span>
                             )}

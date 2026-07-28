@@ -56,7 +56,7 @@ export default function MapCanvasEditor({
     const [error, setError] = useState<string | null>(null);
 
     // Canvas Viewport State (Zoom & Pan)
-    const [scale, setScale] = useState<number>(1);
+    const [scale, setScale] = useState<number>(1); 
     const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
     const [isDragging, setIsDragging] = useState(false);
     const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -64,6 +64,7 @@ export default function MapCanvasEditor({
     // Interactive Placement State
     const [isAddMode, setIsAddMode] = useState(false);
     const [showGrid, setShowGrid] = useState(true);
+    const [showBackground, setShowBackground] = useState(false); // OFF by default per mentor request
     const [hoveredWorld, setHoveredWorld] = useState<Point2D | null>(null);
     const [pendingGoalPos, setPendingGoalPos] = useState<{ px: number; py: number; world: Point2D; yaw: number } | null>(null);
     const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
@@ -187,12 +188,18 @@ export default function MapCanvasEditor({
         // 1. Clear Main Canvas
         ctx.clearRect(0, 0, imgWidth, imgHeight);
 
-        // 2. Draw Base Map Image from Offscreen Buffer
-        ctx.drawImage(offscreen, 0, 0);
+        // 2. Draw Base Map (PGM background) — OFF by default per mentor request
+        if (showBackground) {
+            ctx.drawImage(offscreen, 0, 0);
+        } else {
+            // Clean dark background
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, 0, imgWidth, imgHeight);
+        }
 
         // 3. Draw 1-Meter Grid Lines
         if (showGrid) {
-            ctx.strokeStyle = 'rgba(59, 130, 246, 0.2)'; // Blue grid lines
+            ctx.strokeStyle = showBackground ? 'rgba(59, 130, 246, 0.2)' : 'rgba(59, 130, 246, 0.12)';
             ctx.lineWidth = 1;
             const gridSpacingPx = Math.round(1.0 / mapMeta.resolution); // 1.0m in pixels
 
@@ -217,20 +224,20 @@ export default function MapCanvasEditor({
 
             const isSelected = selectedGoal?.goal_id === goal.goal_id;
 
-            // Goal Pin Circle
+            // Goal Pin Circle (Smaller)
             ctx.beginPath();
-            ctx.arc(px, py, isSelected ? 9 : 7, 0, 2 * Math.PI);
+            ctx.arc(px, py, isSelected ? 6 : 4, 0, 2 * Math.PI);
             ctx.fillStyle = goal.goal_type === 'TABLE' ? '#3b82f6' :
                             goal.goal_type === 'CHARGE' ? '#eab308' :
                             goal.goal_type === 'HOME' ? '#22c55e' : '#a855f7';
             ctx.fill();
             ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = 2;
+            ctx.lineWidth = 1.5;
             ctx.stroke();
 
             // Heading Arrow (Yaw)
             if (goal.yaw !== undefined && goal.yaw !== null) {
-                const arrowLength = 16;
+                const arrowLength = 12;
                 const canvasYaw = -goal.yaw; // Canvas Y is inverted
                 const endPx = px + arrowLength * Math.cos(canvasYaw);
                 const endPy = py + arrowLength * Math.sin(canvasYaw);
@@ -239,23 +246,21 @@ export default function MapCanvasEditor({
                 ctx.moveTo(px, py);
                 ctx.lineTo(endPx, endPy);
                 ctx.strokeStyle = '#ffffff';
-                ctx.lineWidth = 2;
+                ctx.lineWidth = 1.5;
                 ctx.stroke();
             }
 
-            // Goal Label Badge
-            const label = goal.goal_name || goal.goal_code || `Goal ${goal.goal_id}`;
-            ctx.font = 'bold 11px sans-serif';
+            // Minimal Goal Label (No Box, Text Stroke Only)
+            const label = goal.goal_name || goal.goal_code || `G${goal.goal_id}`;
+            ctx.font = '600 10px sans-serif';
             const textWidth = ctx.measureText(label).width;
 
-            ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
-            ctx.fillRect(px - textWidth / 2 - 4, py - 22, textWidth + 8, 14);
-            ctx.strokeStyle = isSelected ? '#3b82f6' : 'rgba(255,255,255,0.4)';
-            ctx.lineWidth = 1;
-            ctx.strokeRect(px - textWidth / 2 - 4, py - 22, textWidth + 8, 14);
-
-            ctx.fillStyle = '#ffffff';
-            ctx.fillText(label, px - textWidth / 2, py - 11);
+            ctx.strokeStyle = 'rgba(15, 23, 42, 0.8)';
+            ctx.lineWidth = 3;
+            ctx.strokeText(label, px - textWidth / 2, py - 8);
+            
+            ctx.fillStyle = isSelected ? '#60a5fa' : '#ffffff';
+            ctx.fillText(label, px - textWidth / 2, py - 8);
         });
 
         // 5. Draw Real-Time Robot Poses
@@ -322,7 +327,7 @@ export default function MapCanvasEditor({
             ctx.lineWidth = 3;
             ctx.stroke();
         }
-    }, [imageLoaded, imgWidth, imgHeight, showGrid, mapMeta, goals, robotPoses, selectedGoal, pendingGoalPos]);
+    }, [imageLoaded, imgWidth, imgHeight, showGrid, showBackground, mapMeta, goals, robotPoses, selectedGoal, pendingGoalPos]);
 
     useEffect(() => {
         drawCanvas();
@@ -462,6 +467,19 @@ export default function MapCanvasEditor({
                 </div>
 
                 <div className="flex items-center gap-2">
+                    {/* Background Toggle */}
+                    <button
+                        onClick={() => setShowBackground(!showBackground)}
+                        className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition ${
+                            showBackground
+                                ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/40'
+                                : 'bg-slate-800 text-slate-400 border-slate-700'
+                        }`}
+                        title="Toggle PGM Map Background"
+                    >
+                        {showBackground ? 'Map ON' : 'Map OFF'}
+                    </button>
+
                     {/* Grid Toggle */}
                     <button
                         onClick={() => setShowGrid(!showGrid)}
@@ -550,7 +568,7 @@ export default function MapCanvasEditor({
                 <div className="absolute bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:w-96 bg-slate-900 border border-amber-500/50 rounded-xl p-4 shadow-2xl z-30 animate-in slide-in-from-bottom-3">
                     <div className="flex items-center justify-between mb-3 border-b border-slate-800 pb-2">
                         <h4 className="text-sm font-bold text-amber-400 flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                            <span className="w-2 h-2 rounded-full bg-amber-400 "></span>
                             New Waypoint Position
                         </h4>
                         <button onClick={() => setPendingGoalPos(null)} className="text-slate-400 hover:text-white text-xs">✕</button>

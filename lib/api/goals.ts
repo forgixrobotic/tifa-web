@@ -119,11 +119,17 @@ export async function getActiveGoalQueues(companyId?: number): Promise<ApiResult
 /**
  * Count goals by type
  */
-export async function countGoalsByType(): Promise<ApiResult<Record<string, number>>> {
+export async function countGoalsByType(companyId?: number): Promise<ApiResult<Record<string, number>>> {
     try {
-        const data = await query<{ goal_type: string }>(
-            `SELECT goal_type FROM m_goal`
-        );
+        let sql = `SELECT g.goal_type FROM m_goal g`;
+        const params: number[] = [];
+
+        if (companyId) {
+            sql += ` JOIN m_map m ON g.map_id = m.map_id WHERE m.company_id = $1`;
+            params.push(companyId);
+        }
+
+        const data = await query<{ goal_type: string }>(sql, params.length > 0 ? params : undefined);
 
         const counts: Record<string, number> = {
             TABLE: 0,

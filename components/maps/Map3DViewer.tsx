@@ -75,8 +75,8 @@ export default function Map3DViewer({
         // Scene Setup
         const scene = new THREE.Scene();
         sceneRef.current = scene;
-        scene.background = new THREE.Color(0x090d16);
-        scene.fog = new THREE.FogExp2(0x090d16, 0.02);
+        scene.background = new THREE.Color(0x1a2332);
+        scene.fog = new THREE.FogExp2(0x1a2332, 0.008);
 
         // Dynamic Group containers for Waypoints & Robots
         const goalsGroup = new THREE.Group();
@@ -118,18 +118,22 @@ export default function Map3DViewer({
             return;
         }
 
-        // Lighting
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+        // Lighting — brighter to avoid "too dark/abstract" appearance
+        const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
         scene.add(ambientLight);
 
-        const dirLight = new THREE.DirectionalLight(0x38bdf8, 1.2);
-        dirLight.position.set(10, -20, 30);
+        const dirLight = new THREE.DirectionalLight(0x93c5fd, 1.8);
+        dirLight.position.set(15, -25, 40);
         dirLight.castShadow = true;
         dirLight.shadow.mapSize.width = 2048;
         dirLight.shadow.mapSize.height = 2048;
         scene.add(dirLight);
 
-        const hemiLight = new THREE.HemisphereLight(0x1e293b, 0x020617, 0.5);
+        const dirLight2 = new THREE.DirectionalLight(0xfde68a, 0.6);
+        dirLight2.position.set(-10, 15, 20);
+        scene.add(dirLight2);
+
+        const hemiLight = new THREE.HemisphereLight(0x93c5fd, 0x1e293b, 0.8);
         scene.add(hemiLight);
 
         // Load PGM & YAML Data
@@ -211,9 +215,9 @@ export default function Map3DViewer({
                 // 3D Floor Plane
                 const floorGeo = new THREE.PlaneGeometry(mapRealWidth, mapRealHeight);
                 const floorMat = new THREE.MeshStandardMaterial({
-                    color: 0x0f172a,
-                    roughness: 0.8,
-                    metalness: 0.2,
+                    color: 0x1e293b,
+                    roughness: 0.7,
+                    metalness: 0.1,
                 });
                 const floorMesh = new THREE.Mesh(floorGeo, floorMat);
                 floorMesh.position.set(originX + mapRealWidth / 2, originY + mapRealHeight / 2, -0.01);
@@ -243,9 +247,9 @@ export default function Map3DViewer({
 
                 const boxGeo = new THREE.BoxGeometry(res, res, 1.0); // Unit height, scaled dynamically
                 const boxMat = new THREE.MeshStandardMaterial({
-                    color: 0x1e293b,
-                    roughness: 0.4,
-                    metalness: 0.6,
+                    color: 0x475569,
+                    roughness: 0.3,
+                    metalness: 0.5,
                     wireframe,
                 });
                 wallMaterialRef.current = boxMat;
@@ -366,7 +370,7 @@ export default function Map3DViewer({
             <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 bg-slate-900 border-b border-slate-800 z-10">
                 <div className="flex items-center gap-2">
                     <span className="text-xs font-bold text-sky-400 uppercase tracking-wider flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-sky-400 animate-pulse"></span>
+                        <span className="w-2 h-2 rounded-full bg-sky-400 "></span>
                         ROS 3D Map Visualizer
                     </span>
                     <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 font-mono">Map ID: {mapId}</span>

@@ -40,7 +40,7 @@ export async function GET(request: Request) {
     }
 
     if (action === 'count-by-type') {
-        const result = await countGoalsByType();
+        const result = await countGoalsByType(companyId);
         return NextResponse.json(result);
     }
 

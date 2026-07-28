@@ -71,7 +71,7 @@ export default function WebSocketSessionControl({ currentUserEmail }: { currentU
     const isOthers = status.isWsTurnedOn && status.activeUserEmail !== currentUserEmail;
 
     if (loading) {
-        return <div className="h-8 w-24 animate-pulse bg-sidebar rounded-lg"></div>;
+        return <div className="h-8 w-24  bg-sidebar rounded-lg"></div>;
     }
 
     return (

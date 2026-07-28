@@ -183,7 +183,7 @@ export default function ManageRobotsPage() {
                         Administrative controls for robot devices
                     </p>
                 </div>
-                {userRole === 'admin' && (
+                {(userRole === 'admin' || userRole === 'super_admin') && (
                     <button
                         type="button"
                         onClick={() => {
@@ -360,7 +360,7 @@ export default function ManageRobotsPage() {
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                                             <div className="flex items-center justify-end gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
-                                                {userRole === 'admin' && (
+                                                {(userRole === 'admin' || userRole === 'super_admin') && (
                                                     <button
                                                         type="button"
                                                         onClick={() => handleEdit(group)}
@@ -372,7 +372,7 @@ export default function ManageRobotsPage() {
                                                         </svg>
                                                     </button>
                                                 )}
-                                                {userRole === 'admin' && (
+                                                {(userRole === 'admin' || userRole === 'super_admin') && (
                                                     <button
                                                         type="button"
                                                         onClick={() => handleDelete(group)}

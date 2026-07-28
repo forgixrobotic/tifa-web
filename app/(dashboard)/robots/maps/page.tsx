@@ -184,6 +184,16 @@ export default function ManageMapsPage() {
     });
     const [isSavingGoal, setIsSavingGoal] = useState(false);
 
+    // Lock page scroll when modal is open
+    useEffect(() => {
+        if (isMapViewerOpen || isGoalModalOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+        return () => { document.body.style.overflow = ''; };
+    }, [isMapViewerOpen, isGoalModalOpen]);
+
     const loadMaps = async () => {
         setLoading(true);
         const { data, error: apiError } = await getAllMaps();
@@ -440,7 +450,7 @@ export default function ManageMapsPage() {
                                             >
                                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                                             </button>
-                                            {userRole === 'admin' && (
+                                            {(userRole === 'admin' || userRole === 'super_admin') && (
                                                 <button 
                                                     className="p-2 text-txt-sec hover:text-rose-700 dark:text-rose-400 hover:bg-rose-100 dark:bg-rose-500/10 rounded-lg transition-colors" 
                                                     title={dict.dashboard.maps?.delete_map || "Delete"}
@@ -734,7 +744,7 @@ export default function ManageMapsPage() {
                                 {loadingMapImage ? (
                                     <div className="space-y-4">
                                         {[1, 2].map(i => (
-                                            <div key={i} className="animate-pulse flex flex-col gap-2 p-3 bg-[#1e293b]/30 rounded-lg border border-border-base/50">
+                                            <div key={i} className=" flex flex-col gap-2 p-3 bg-[#1e293b]/30 rounded-lg border border-border-base/50">
                                                 <div className="h-4 bg-border-base rounded w-3/4"></div>
                                                 <div className="h-3 bg-border-base rounded w-1/2"></div>
                                             </div>

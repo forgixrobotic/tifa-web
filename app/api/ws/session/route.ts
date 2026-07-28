@@ -94,11 +94,8 @@ export async function POST(request: Request) {
             return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
         }
 
-        // Only ADMIN or SUPER_ADMIN can turn on WebSocket
-        const roleLower = user.role?.toLowerCase();
-        if (roleLower !== 'admin' && roleLower !== 'super_admin') {
-            return NextResponse.json({ success: false, error: 'Forbidden: Only admins can control WebSocket session' }, { status: 403 });
-        }
+        // All authenticated users (super_admin, admin, operator) can control WebSocket
+        // Previously restricted to admin-only; updated per user request to allow barista/operator access
 
         const settings = getSettings();
 

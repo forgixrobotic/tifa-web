@@ -108,7 +108,7 @@ export default function RobotDetailPage({
           {isOnline ? (
             <>
               <span className="flex h-2 w-2 relative">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className=" absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
               <span className="text-xs font-medium text-emerald-500 uppercase tracking-widest">Online</span>
@@ -410,7 +410,7 @@ export default function RobotDetailPage({
             Battery History
           </h2>
           {loading && (
-            <span className="text-[10px] text-blue-700 dark:text-blue-400 animate-pulse uppercase tracking-wider">Syncing...</span>
+            <span className="text-[10px] text-blue-700 dark:text-blue-400  uppercase tracking-wider">Syncing...</span>
           )}
         </div>
         <div className="max-h-64 overflow-y-auto custom-scrollbar">

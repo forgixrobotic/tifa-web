@@ -397,7 +397,7 @@ export default function RobotControlPanel({ selectedGroup }: Props) {
                 <div className="flex items-center gap-3">
                     {activeTasks.length > 0 && (
                         <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-sidebar border border-amber-400">
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 " />
                             <span className="text-[10px] font-medium text-txt-main">
                                 {activeTasks.length} {d.active_task}
                             </span>
@@ -575,7 +575,7 @@ export default function RobotControlPanel({ selectedGroup }: Props) {
                                                     </div>
                                                     {selectedMapId === activeMapIdFromDb && (
                                                         <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-txt-accent/10 border border-txt-accent/30 flex-shrink-0">
-                                                            <span className="w-1 h-1 rounded-full bg-txt-accent animate-pulse" />
+                                                            <span className="w-1 h-1 rounded-full bg-txt-accent " />
                                                             <span className="text-[8px] font-bold text-txt-accent uppercase">{d.map_active_badge}</span>
                                                         </span>
                                                     )}
@@ -649,7 +649,7 @@ export default function RobotControlPanel({ selectedGroup }: Props) {
                                                                         <div className="flex items-center gap-2 flex-shrink-0">
                                                                             {isActive && (
                                                                                 <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-txt-accent/10 border border-txt-accent/30">
-                                                                                    <span className="w-1 h-1 rounded-full bg-txt-accent animate-pulse" />
+                                                                                    <span className="w-1 h-1 rounded-full bg-txt-accent " />
                                                                                     <span className="text-[8px] font-bold text-txt-accent uppercase">{d.map_active_badge}</span>
                                                                                 </span>
                                                                             )}
@@ -896,7 +896,7 @@ export default function RobotControlPanel({ selectedGroup }: Props) {
                                                     className="flex items-center justify-between px-3 py-2 rounded-lg bg-sidebar border border-border-base"
                                                 >
                                                     <div className="flex items-center gap-2">
-                                                        <div className={`w-1.5 h-1.5 rounded-full ${task.status === "IN_PROGRESS" ? "bg-amber-500 animate-pulse" : "bg-accent"}`} />
+                                                        <div className={`w-1.5 h-1.5 rounded-full ${task.status === "IN_PROGRESS" ? "bg-amber-500 " : "bg-accent"}`} />
                                                         <span className="text-xs text-txt-main font-medium">{goalName}</span>
                                                         {trayNum && (
                                                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent/10 text-accent font-mono">

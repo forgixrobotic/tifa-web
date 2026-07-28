@@ -122,7 +122,7 @@ export default function RobotSelectorModal({
                     </div>
                     {/* Pulse indicator for active selection */}
                     {selectedGroupId && (
-                        <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-emerald-500 border-2 border-sidebar animate-pulse" />
+                        <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-emerald-500 border-2 border-sidebar " />
                     )}
                 </div>
 
@@ -230,7 +230,7 @@ export default function RobotSelectorModal({
                                 <div>
                                     <div className="px-4 py-2 bg-emerald-50 dark:bg-emerald-500/5 border-b border-border-base/50">
                                         <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 flex items-center gap-2">
-                                            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                                            <span className="h-2 w-2 rounded-full bg-emerald-500 " />
                                             Online ({onlineRobots.length})
                                         </span>
                                     </div>
