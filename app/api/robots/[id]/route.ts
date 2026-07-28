@@ -14,7 +14,8 @@ export async function GET(
 
 async function requireAdmin(): Promise<{ error?: { error: string; status: number } }> {
     const user = await getCurrentUser();
-    if (!user.data || user.data.role !== 'admin') {
+    const role = user.data?.role;
+    if (!role || (role !== 'admin' && role !== 'super_admin')) {
         return { error: { error: 'Forbidden: Admin only', status: 403 } };
     }
     return {};
