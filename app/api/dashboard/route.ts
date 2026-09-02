@@ -2,10 +2,17 @@ import { NextResponse } from 'next/server';
 import { getDashboardStats } from '@/lib/api/dashboard';
 import { getDeviceStatus } from '@/lib/api/deviceStatus';
 import { getBatteryHistory } from '@/lib/api/battery';
+import { getCurrentUser } from '@/lib/api/auth';
 import { query } from '@/lib/dbClient';
 import type { RobotSummary } from '@/lib/types/database';
 
 export const dynamic = 'force-dynamic';
+
+async function getCompanyId(): Promise<number | undefined> {
+    const user = await getCurrentUser();
+    if (user.data?.role === 'super_admin') return undefined;
+    return user.data?.companyId;
+}
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
@@ -64,6 +71,9 @@ export async function GET(request: Request) {
         return NextResponse.json({ data: summary, error: null });
     }
 
-    const result = await getDashboardStats();
+    // Dashboard stats — scoped by company
+    const companyId = await getCompanyId();
+    const result = await getDashboardStats(companyId);
     return NextResponse.json(result);
 }
+

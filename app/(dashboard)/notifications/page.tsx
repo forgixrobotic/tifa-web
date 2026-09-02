@@ -39,6 +39,7 @@ type UnifiedLogItem = {
 
 type TimeRange = '1d' | '1w' | '1m' | '3m';
 type FilterType = 'all' | 'success' | 'sent' | 'error' | 'ws_all' | 'ws_ready' | 'ws_error' | 'ws_disconnect' | 'ws_init';
+type ActiveTab = 'realtime' | 'daily' | 'monthly';
 
 type RobotOption = {
   deviceId: number;
@@ -55,6 +56,11 @@ export default function ActivityLogPage() {
   const [filter, setFilter] = useState<FilterType>("all");
   const [robotOptions, setRobotOptions] = useState<RobotOption[]>([]);
   const [selectedRobotId, setSelectedRobotId] = useState<string>("all");
+
+  const [activeTab, setActiveTab] = useState<ActiveTab>('realtime');
+  const [dailyLogs, setDailyLogs] = useState<any[]>([]);
+  const [monthlyLogs, setMonthlyLogs] = useState<any[]>([]);
+  const [loadingAgg, setLoadingAgg] = useState(false);
 
   // Load robot list for selector
   useEffect(() => {
@@ -149,6 +155,28 @@ export default function ActivityLogPage() {
 
     void loadLogs();
   }, [range, selectedRobotId]);
+
+  // Load Aggregated Logs (Daily / Monthly)
+  useEffect(() => {
+    if (activeTab === 'realtime') return;
+    const loadAggLogs = async () => {
+      setLoadingAgg(true);
+      try {
+        let url = `/api/commands?action=${activeTab}-logs`;
+        if (selectedRobotId !== "all") {
+          url += `&deviceId=${selectedRobotId}`;
+        }
+        const res = await fetch(url).then(r => r.json());
+        if (activeTab === 'daily') setDailyLogs(res.data || []);
+        if (activeTab === 'monthly') setMonthlyLogs(res.data || []);
+      } catch {
+        if (activeTab === 'daily') setDailyLogs([]);
+        if (activeTab === 'monthly') setMonthlyLogs([]);
+      }
+      setLoadingAgg(false);
+    };
+    void loadAggLogs();
+  }, [activeTab, selectedRobotId]);
 
   // Filter logs client-side
   const filteredLogs = (() => {
@@ -303,81 +331,90 @@ export default function ActivityLogPage() {
             {dict.dashboard.notifications.title}
           </h1>
           <p className="text-sm text-txt-sec mt-1">
-            Riwayat eksekusi perintah & status koneksi robot — {rangeLabel[range]}
+            Riwayat eksekusi perintah & status koneksi robot
+            {activeTab === 'realtime' && ` — ${rangeLabel[range]}`}
           </p>
         </div>
       </div>
 
-      {/* Filter Pills - Two Rows */}
-      <div className="space-y-2">
-        {/* Row 1: Command Logs Filter */}
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-[10px] text-txt-sec uppercase tracking-wider font-semibold mr-1">Commands:</span>
-          {[
-            { key: "all" as FilterType, label: "Semua", count: logs.length },
-            { key: "success" as FilterType, label: "Berhasil", count: successCount },
-            { key: "error" as FilterType, label: "Error", count: errorCount },
-          ].map((item) => (
-            <button
-              key={item.key}
-              onClick={() => setFilter(item.key)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 flex items-center gap-1.5 border ${filter === item.key
-                ? item.key === "error"
-                  ? "bg-rose-100 dark:bg-rose-500/15 text-rose-700 dark:text-rose-400 shadow-sm border-rose-300 dark:border-rose-500/20"
-                  : item.key === "success"
-                    ? "bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 shadow-sm border-emerald-300 dark:border-emerald-500/20"
-                    : "bg-card-bg text-txt-main shadow-sm border-border-highlight"
-                : "text-txt-sec hover:text-txt-main border-transparent"
-                }`}
-            >
-              {item.label}
-              <span className={`text-[10px] font-mono px-1 py-0.5 rounded ${filter === item.key ? "bg-white/5" : "bg-sidebar"}`}>
-                {item.count}
-              </span>
-            </button>
-          ))}
-        </div>
-
-        {/* Row 2: WS Traffic Filter */}
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-[10px] text-txt-sec uppercase tracking-wider font-semibold mr-1">WS Traffic:</span>
-          {[
-            { key: "ws_all" as FilterType, label: "Semua WS", count: wsTrafficCount, color: "blue" },
-            { key: "ws_ready" as FilterType, label: "READY", count: wsLogs.filter(l => l.code === 'READY').length, color: "emerald" },
-            { key: "ws_init" as FilterType, label: "INIT", count: wsLogs.filter(l => l.code === 'INIT').length, color: "blue" },
-            { key: "ws_error" as FilterType, label: "ERROR", count: wsLogs.filter(l => l.code === 'ERROR').length, color: "rose" },
-            { key: "ws_disconnect" as FilterType, label: "DISCONNECT", count: wsLogs.filter(l => l.code === 'DISCONNECT').length, color: "slate" },
-          ].map((item) => (
-            <button
-              key={item.key}
-              onClick={() => setFilter(item.key)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 flex items-center gap-1.5 border ${filter === item.key
-                ? `bg-${item.color}-500/15 text-${item.color}-400 shadow-sm border-${item.color}-500/20`
-                : "text-txt-sec hover:text-txt-main border-transparent"
-                }`}
-              style={filter === item.key ? {
-                backgroundColor: item.color === 'emerald' ? 'rgba(16,185,129,0.15)' :
-                  item.color === 'rose' ? 'rgba(244,63,94,0.15)' :
-                  item.color === 'slate' ? 'rgba(100,116,139,0.15)' :
-                  'rgba(59,130,246,0.15)',
-                color: item.color === 'emerald' ? 'rgb(52,211,153)' :
-                  item.color === 'rose' ? 'rgb(251,113,133)' :
-                  item.color === 'slate' ? 'rgb(148,163,184)' :
-                  'rgb(96,165,250)',
-                borderColor: item.color === 'emerald' ? 'rgba(16,185,129,0.2)' :
-                  item.color === 'rose' ? 'rgba(244,63,94,0.2)' :
-                  item.color === 'slate' ? 'rgba(100,116,139,0.2)' :
-                  'rgba(59,130,246,0.2)',
-              } : undefined}
-            >
-              {item.label}
-              <span className={`text-[10px] font-mono px-1 py-0.5 rounded ${filter === item.key ? "bg-white/5" : "bg-sidebar"}`}>
-                {item.count}
-              </span>
-            </button>
-          ))}
-        </div>
+      {/* Tabs */}
+      <div className="flex border-b border-border-base mt-4">
+        <button onClick={() => setActiveTab('realtime')} className={`pb-2 px-4 text-sm font-medium transition-colors ${activeTab === 'realtime' ? 'border-b-2 border-blue-500 text-blue-500' : 'text-txt-sec hover:text-txt-main'}`}>Realtime</button>
+        <button onClick={() => setActiveTab('daily')} className={`pb-2 px-4 text-sm font-medium transition-colors ${activeTab === 'daily' ? 'border-b-2 border-blue-500 text-blue-500' : 'text-txt-sec hover:text-txt-main'}`}>Log Harian</button>
+        <button onClick={() => setActiveTab('monthly')} className={`pb-2 px-4 text-sm font-medium transition-colors ${activeTab === 'monthly' ? 'border-b-2 border-blue-500 text-blue-500' : 'text-txt-sec hover:text-txt-main'}`}>Log Bulanan</button>
       </div>
+
+      {activeTab === 'realtime' && (
+        <div className="space-y-2">
+          {/* Row 1: Command Logs Filter */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[10px] text-txt-sec uppercase tracking-wider font-semibold mr-1">Commands:</span>
+            {[
+              { key: "all" as FilterType, label: "Semua", count: logs.length },
+              { key: "success" as FilterType, label: "Berhasil", count: successCount },
+              { key: "error" as FilterType, label: "Error", count: errorCount },
+            ].map((item) => (
+              <button
+                key={item.key}
+                onClick={() => setFilter(item.key)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 flex items-center gap-1.5 border ${filter === item.key
+                  ? item.key === "error"
+                    ? "bg-rose-100 dark:bg-rose-500/15 text-rose-700 dark:text-rose-400 shadow-sm border-rose-300 dark:border-rose-500/20"
+                    : item.key === "success"
+                      ? "bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 shadow-sm border-emerald-300 dark:border-emerald-500/20"
+                      : "bg-card-bg text-txt-main shadow-sm border-border-highlight"
+                  : "text-txt-sec hover:text-txt-main border-transparent"
+                  }`}
+              >
+                {item.label}
+                <span className={`text-[10px] font-mono px-1 py-0.5 rounded ${filter === item.key ? "bg-white/5" : "bg-sidebar"}`}>
+                  {item.count}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          {/* Row 2: WS Traffic Filter */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[10px] text-txt-sec uppercase tracking-wider font-semibold mr-1">WS Traffic:</span>
+            {[
+              { key: "ws_all" as FilterType, label: "Semua WS", count: wsTrafficCount, color: "blue" },
+              { key: "ws_ready" as FilterType, label: "READY", count: wsLogs.filter(l => l.code === 'READY').length, color: "emerald" },
+              { key: "ws_init" as FilterType, label: "INIT", count: wsLogs.filter(l => l.code === 'INIT').length, color: "blue" },
+              { key: "ws_error" as FilterType, label: "ERROR", count: wsLogs.filter(l => l.code === 'ERROR').length, color: "rose" },
+              { key: "ws_disconnect" as FilterType, label: "DISCONNECT", count: wsLogs.filter(l => l.code === 'DISCONNECT').length, color: "slate" },
+            ].map((item) => (
+              <button
+                key={item.key}
+                onClick={() => setFilter(item.key)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 flex items-center gap-1.5 border ${filter === item.key
+                  ? `bg-${item.color}-500/15 text-${item.color}-400 shadow-sm border-${item.color}-500/20`
+                  : "text-txt-sec hover:text-txt-main border-transparent"
+                  }`}
+                style={filter === item.key ? {
+                  backgroundColor: item.color === 'emerald' ? 'rgba(16,185,129,0.15)' :
+                    item.color === 'rose' ? 'rgba(244,63,94,0.15)' :
+                    item.color === 'slate' ? 'rgba(100,116,139,0.15)' :
+                    'rgba(59,130,246,0.15)',
+                  color: item.color === 'emerald' ? 'rgb(52,211,153)' :
+                    item.color === 'rose' ? 'rgb(251,113,133)' :
+                    item.color === 'slate' ? 'rgb(148,163,184)' :
+                    'rgb(96,165,250)',
+                  borderColor: item.color === 'emerald' ? 'rgba(16,185,129,0.2)' :
+                    item.color === 'rose' ? 'rgba(244,63,94,0.2)' :
+                    item.color === 'slate' ? 'rgba(100,116,139,0.2)' :
+                    'rgba(59,130,246,0.2)',
+                } : undefined}
+              >
+                {item.label}
+                <span className={`text-[10px] font-mono px-1 py-0.5 rounded ${filter === item.key ? "bg-white/5" : "bg-sidebar"}`}>
+                  {item.count}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Robot Selector Cards */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1">
@@ -432,8 +469,10 @@ export default function ActivityLogPage() {
         })}
       </div>
 
-      {/* Time Range + Counter */}
-      <div className="flex items-center justify-between gap-4">
+      {activeTab === 'realtime' && (
+        <>
+          {/* Time Range + Counter */}
+          <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-1.5">
           <svg className="w-3.5 h-3.5 text-txt-sec mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -459,16 +498,20 @@ export default function ActivityLogPage() {
 
         {/* Log Count */}
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-sidebar border border-border-base">
-          <div className="w-1.5 h-1.5 rounded-full bg-blue-400 shadow-[0_0_4px_#60a5fa] animate-pulse"></div>
+          <div className="w-1.5 h-1.5 rounded-full bg-blue-400 shadow-[0_0_4px_#60a5fa] "></div>
           <span className="text-[11px] text-txt-sec font-mono">
             <span className="text-txt-main font-semibold">{filteredLogs.length}</span> log
           </span>
         </div>
       </div>
+        </>
+      )}
 
-      {/* Log List */}
+      {/* Log List / Tables */}
       <div className="glass-panel rounded-xl overflow-hidden">
-        {loading ? (
+        {activeTab === 'realtime' ? (
+          <>
+            {loading ? (
           <div className="p-16 text-center">
             <div className="inline-flex flex-col items-center gap-4 text-txt-sec">
               <div className="relative">
@@ -587,6 +630,41 @@ export default function ActivityLogPage() {
                   </div>
                 ));
             })()}
+          </div>
+        )}
+          </>
+        ) : (
+          <div className="overflow-x-auto">
+            {loadingAgg ? (
+              <div className="p-16 text-center text-txt-sec text-sm font-medium">Memuat data agregasi...</div>
+            ) : (activeTab === 'daily' ? dailyLogs : monthlyLogs).length === 0 ? (
+              <div className="p-16 text-center text-txt-sec text-sm font-medium">Belum ada data log {activeTab === 'daily' ? 'harian' : 'bulanan'}.</div>
+            ) : (
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-sidebar border-b border-border-base text-xs font-semibold text-txt-sec uppercase tracking-wider">
+                    <th className="px-5 py-3 whitespace-nowrap">{activeTab === 'daily' ? 'Tanggal' : 'Bulan'}</th>
+                    <th className="px-5 py-3 whitespace-nowrap">Total Command</th>
+                    <th className="px-5 py-3 whitespace-nowrap">Operasi Navigasi</th>
+                    <th className="px-5 py-3 whitespace-nowrap">Move Count</th>
+                    <th className="px-5 py-3 whitespace-nowrap text-rose-500">Error Count</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border-base/50">
+                  {(activeTab === 'daily' ? dailyLogs : monthlyLogs).map((row, i) => (
+                    <tr key={i} className="hover:bg-card-bg/50 transition-colors text-sm">
+                      <td className="px-5 py-4 font-mono text-txt-main whitespace-nowrap">
+                        {activeTab === 'daily' ? new Date(row.date).toLocaleDateString('id-ID') : row.month}
+                      </td>
+                      <td className="px-5 py-4 text-txt-sec font-mono">{row.total_commands}</td>
+                      <td className="px-5 py-4 text-txt-sec font-mono">{row.op_count}</td>
+                      <td className="px-5 py-4 text-txt-sec font-mono">{row.move_count}</td>
+                      <td className="px-5 py-4 font-mono font-medium text-rose-500">{row.error_count}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         )}
       </div>

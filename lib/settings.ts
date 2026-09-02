@@ -8,6 +8,7 @@ export interface CommunicationSettings {
     mapId: string;
     activeUserEmail?: string | null;
     isWsTurnedOn?: boolean;
+    jwtToken?: string;
 }
 
 const SETTINGS_FILE_PATH = path.join(process.cwd(), 'data', 'settings.json');

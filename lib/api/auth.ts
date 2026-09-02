@@ -6,15 +6,16 @@ import { query } from '@/lib/dbClient';
 import type { AuthUser, SignInResult, ApiResult } from '@/lib/types/database';
 import { cookies } from 'next/headers';
 import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
 
 // In-memory session store (for development only)
 // In production, use proper session management (Redis, JWT, etc.)
 const sessionStore = new Map<string, AuthUser>();
+export { sessionStore };
 
 /**
  * Sign in with email/username and password
- * Note: Password verification uses plain text comparison for now
- * In production, use bcrypt or similar for password hashing
+ * Verifies password using BCrypt. Auto-migrates legacy plain-text passwords to BCrypt hashes on successful login.
  */
 export async function signIn(email: string, password: string): Promise<SignInResult> {
     try {
@@ -25,8 +26,9 @@ export async function signIn(email: string, password: string): Promise<SignInRes
             email: string | null;
             password_hash: string | null;
             is_active: boolean;
+            company_id: number | null;
         }>(
-            `SELECT user_id, username, email, password_hash, is_active
+            `SELECT user_id, username, email, password_hash, is_active, company_id
              FROM t_user
              WHERE (email = $1 OR username = $1) AND is_active = true`,
             [email]
@@ -38,10 +40,38 @@ export async function signIn(email: string, password: string): Promise<SignInRes
 
         const user = users[0];
 
-        // Simple password check (in production, use bcrypt.compare)
-        // For now, we'll check if password matches password_hash directly
-        // or if password_hash is null (no password set)
-        if (user.password_hash && user.password_hash !== password) {
+        if (!user.password_hash) {
+            return { success: false, error: "Password not set for user" };
+        }
+
+        let isPasswordValid = false;
+        const isBcryptHash = user.password_hash.startsWith('$2a$') || 
+                             user.password_hash.startsWith('$2b$') || 
+                             user.password_hash.startsWith('$2y$');
+
+        if (isBcryptHash) {
+            // Compare using BCrypt
+            isPasswordValid = await bcrypt.compare(password, user.password_hash);
+        } else {
+            // Legacy check: plain-text comparison
+            isPasswordValid = (user.password_hash === password);
+            
+            // Auto-migrate legacy plain-text password to BCrypt hash if valid
+            if (isPasswordValid) {
+                try {
+                    const newHash = await bcrypt.hash(password, 10);
+                    await query(
+                        `UPDATE t_user SET password_hash = $1, updated_at = NOW() WHERE user_id = $2`,
+                        [newHash, user.user_id]
+                    );
+                    console.log(`[Auth] 🔒 Successfully auto-migrated password for user ${user.username} to BCrypt!`);
+                } catch (migrationErr) {
+                    console.error('[Auth] Failed to auto-migrate password hash:', migrationErr);
+                }
+            }
+        }
+
+        if (!isPasswordValid) {
             return { success: false, error: "Invalid password" };
         }
 
@@ -58,7 +88,7 @@ export async function signIn(email: string, password: string): Promise<SignInRes
         const userRole = roles[0]?.role_code?.toLowerCase() ?? 'operator';
 
         // Validate role
-        if (userRole !== 'admin' && userRole !== 'operator') {
+        if (userRole !== 'super_admin' && userRole !== 'admin' && userRole !== 'operator') {
             return { success: false, error: "Invalid user role. Please contact administrator." };
         }
 
@@ -69,19 +99,42 @@ export async function signIn(email: string, password: string): Promise<SignInRes
         const userObj: AuthUser = {
             id: user.user_id.toString(),
             email: user.email ?? user.username,
-            role: userRole as 'admin' | 'operator',
+            role: userRole as 'super_admin' | 'admin' | 'operator',
+            companyId: user.company_id ?? undefined,
             user_metadata: { role: userRole },
         };
         
         sessionStore.set(sessionId, userObj);
         
-        // Set secure HTTP-only cookie
-        const cookieStore = await cookies();
-        cookieStore.set('tifa_session', sessionId, { path: '/', httpOnly: true });
+        // NOTE: Cookie is set in the route handler (app/api/auth/route.ts) via response.cookies.set()
+        // to ensure it survives NextResponse.json() creation. Do NOT call cookies().set() here.
+
+        // Fetch JWT token from tifa-be for WebSocket authentication
+        let jwtToken: string | undefined;
+        try {
+            const beUrl = process.env.TIFA_BE_URL || 'http://localhost:8080';
+            const beResponse = await fetch(`${beUrl}/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: user.username, password }),
+                signal: AbortSignal.timeout(5000),
+            });
+            if (beResponse.ok) {
+                const beData = await beResponse.json();
+                jwtToken = beData.token;
+                console.log(`[Auth] ✅ JWT token obtained from tifa-be for ${user.username}`);
+            } else {
+                console.warn(`[Auth] ⚠️ tifa-be login returned ${beResponse.status}, WS auth will be degraded`);
+            }
+        } catch (beErr) {
+            console.warn('[Auth] ⚠️ tifa-be unreachable, WS auth will be degraded:', (beErr as Error)?.message);
+        }
 
         return {
             success: true,
             user: userObj,
+            token: jwtToken,
+            sessionId,
         };
     } catch (err: unknown) {
         const error = err as Error;
@@ -95,20 +148,21 @@ export async function signIn(email: string, password: string): Promise<SignInRes
 
 /**
  * Sign out current user
+ * @param sessionId Optional session ID. If not provided, reads from cookie.
  */
-export async function signOut(): Promise<ApiResult<null>> {
-    const cookieStore = await cookies();
-    const sessionId = cookieStore.get('tifa_session')?.value;
-    
-    if (sessionId) {
-        sessionStore.delete(sessionId);
+export async function signOut(sessionId?: string): Promise<ApiResult<null>> {
+    const sid = sessionId || (await cookies()).get('tifa_session')?.value;
+    if (sid) {
+        sessionStore.delete(sid);
     }
-    cookieStore.delete('tifa_session');
-    
-    return {
-        data: null,
-        error: null,
-    };
+    return { data: null, error: null };
+}
+
+/**
+ * Get session from store (no cookies needed)
+ */
+export function getSession(sessionId: string): AuthUser | undefined {
+    return sessionStore.get(sessionId);
 }
 
 /**
@@ -156,9 +210,10 @@ export async function updateUserProfile(data: { email?: string; password?: strin
         }
 
         if (data.password) {
-            // In production, hash the password
+            // Hash the password with BCrypt
+            const hashedPassword = await bcrypt.hash(data.password, 10);
             updates.push(`password_hash = $${paramIndex}`);
-            params.push(data.password);
+            params.push(hashedPassword);
             paramIndex++;
         }
 

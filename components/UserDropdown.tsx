@@ -21,6 +21,9 @@ export default function UserDropdown({
 
     // Get role display name
     const getRoleDisplayName = () => {
+        if (role === "super_admin") {
+            return "Super Admin";
+        }
         if (role === "admin") {
             return dict.auth.roles.admin || "Administrator";
         }
@@ -29,6 +32,9 @@ export default function UserDropdown({
 
     // Get role color
     const getRoleColor = () => {
+        if (role === "super_admin") {
+            return "text-amber-600 dark:text-amber-400 font-semibold";
+        }
         if (role === "admin") {
             return "text-blue-700 dark:text-blue-400";
         }

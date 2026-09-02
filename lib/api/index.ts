@@ -109,6 +109,7 @@ export {
     deleteMap,
     getMapFiles,
     getMapImageUrl,
+    getMapYamlUrl,
     // Per-robot summary operations
     getRobotSummary,
     getActiveRobotsWithStatus,

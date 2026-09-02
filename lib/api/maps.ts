@@ -8,15 +8,21 @@ import type { Map, ApiResult } from '@/lib/types/database';
 /**
  * Get all maps
  */
-export async function getAllMaps(): Promise<ApiResult<Map[]>> {
+export async function getAllMaps(companyId?: number): Promise<ApiResult<Map[]>> {
     try {
-        const data = await query<Map>(
-            `SELECT map_id, map_name, description, map_floor, file_group_id, 
-                    created_by, created_at, updated_at
-             FROM m_map
-             WHERE file_group_id IS NOT NULL
-             ORDER BY map_name ASC`
-        );
+        const params: (string | number)[] = [];
+        let sql = `
+            SELECT map_id, map_name, description, map_floor, file_group_id, 
+                   created_by, created_at, updated_at
+            FROM m_map
+            WHERE file_group_id IS NOT NULL
+        `;
+        if (companyId) {
+            sql += ` AND company_id = $1`;
+            params.push(companyId);
+        }
+        sql += ` ORDER BY map_name ASC`;
+        const data = await query<Map>(sql, params.length > 0 ? params : undefined);
 
         return {
             data,
@@ -60,16 +66,21 @@ export async function getMapById(mapId: number): Promise<ApiResult<Map>> {
 /**
  * Get maps by floor
  */
-export async function getMapsByFloor(floor: string): Promise<ApiResult<Map[]>> {
+export async function getMapsByFloor(floor: string, companyId?: number): Promise<ApiResult<Map[]>> {
     try {
-        const data = await query<Map>(
-            `SELECT map_id, map_name, description, map_floor, file_group_id, 
+        const params: (string | number)[] = [floor];
+        let sql = `
+            SELECT map_id, map_name, description, map_floor, file_group_id, 
                     created_by, created_at, updated_at
              FROM m_map
              WHERE map_floor = $1 AND file_group_id IS NOT NULL
-             ORDER BY map_name ASC`,
-            [floor]
-        );
+        `;
+        if (companyId) {
+            sql += ` AND company_id = $2`;
+            params.push(companyId);
+        }
+        sql += ` ORDER BY map_name ASC`;
+        const data = await query<Map>(sql, params);
 
         return {
             data,
@@ -87,11 +98,17 @@ export async function getMapsByFloor(floor: string): Promise<ApiResult<Map[]>> {
 /**
  * Count total maps
  */
-export async function getMapCount(): Promise<ApiResult<number>> {
+export async function getMapCount(companyId?: number): Promise<ApiResult<number>> {
     try {
-        const rows = await query<{ count: string }>(
-            `SELECT COUNT(*) as count FROM m_map`
-        );
+        let sql = `SELECT COUNT(*) as count FROM m_map`;
+        const params: number[] = [];
+
+        if (companyId) {
+            sql += ` WHERE company_id = $1`;
+            params.push(companyId);
+        }
+
+        const rows = await query<{ count: string }>(sql, params.length > 0 ? params : undefined);
 
         return {
             data: parseInt(rows[0]?.count ?? '0', 10),
@@ -206,11 +223,16 @@ export async function getMapFileBuffer(mapId: number, fileType: string): Promise
         const fs = await import('fs');
         const path = await import('path');
 
-        // Try multiple paths (production vs dev)
+        // Try multiple paths (production vs dev vs sample fallback)
         const candidates = [
             file.file_path,
-            path.join('D:', 'data', 'maps', String(mapId), '1', `map.${file.file_type}`),
+            path.join(process.cwd(), 'docs', 'sample', file.file_name),
+            path.join(process.cwd(), 'docs', 'sample', `map.${file.file_type}`),
+            path.join(process.cwd(), '..', 'docs', 'sample', file.file_name),
+            path.join(process.cwd(), '..', 'docs', 'sample', `map.${file.file_type}`),
+            path.join('/opt', 'tifa', 'uploads', 'maps', String(mapId), '2', `map.${file.file_type}`),
             path.join('/opt', 'tifa', 'uploads', 'maps', String(mapId), '1', `map.${file.file_type}`),
+            path.join(process.cwd(), 'docs', 'sample', `map1_save.${file.file_type}`),
         ];
 
         for (const candidate of candidates) {

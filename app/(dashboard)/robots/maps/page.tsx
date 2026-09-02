@@ -3,7 +3,9 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useLanguage } from "@/components/LanguageProvider";
-import { getAllMaps, uploadMapFull, deleteMap, getDraftGoals, getGoalsByMap, createDestination as apiCreateGoal, updateDestination as apiUpdateGoal, deleteDestination as apiDeleteGoal, getMapFiles, getMapImageUrl, type Map, type Goal } from "@/lib/api";
+import { getAllMaps, uploadMapFull, deleteMap, getDraftGoals, getGoalsByMap, createDestination as apiCreateGoal, updateDestination as apiUpdateGoal, deleteDestination as apiDeleteGoal, getMapFiles, getMapImageUrl, getMapYamlUrl, getCurrentUser, type Map, type Goal } from "@/lib/api";
+import MapCanvasEditor from "@/components/maps/MapCanvasEditor";
+import Map3DViewer from "@/components/maps/Map3DViewer";
 
 type Category = {
     category_id: number | null;
@@ -165,11 +167,14 @@ export default function ManageMapsPage() {
     const [mapDestinations, setMapDestinations] = useState<Record<number, Goal[]>>({});
     const [loadingDestinations, setLoadingDestinations] = useState<Record<number, boolean>>({});
 
+    const [userRole, setUserRole] = useState<string | null>(null);
+
     // Map Viewer Modal State
     const [viewingMapId, setViewingMapId] = useState<number | null>(null);
     const [isMapViewerOpen, setIsMapViewerOpen] = useState(false);
     const [mapFiles, setMapFiles] = useState<any[]>([]);
     const [loadingMapImage, setLoadingMapImage] = useState(false);
+    const [mapViewMode, setMapViewMode] = useState<'2D' | '3D'>('2D');
 
     // Goal CRUD Modal State
     const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
@@ -178,6 +183,16 @@ export default function ManageMapsPage() {
         goal_name: "", goal_code: "", goal_type: "CUSTOM", x: 0, y: 0, yaw: 0
     });
     const [isSavingGoal, setIsSavingGoal] = useState(false);
+
+    // Lock page scroll when modal is open
+    useEffect(() => {
+        if (isMapViewerOpen || isGoalModalOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+        return () => { document.body.style.overflow = ''; };
+    }, [isMapViewerOpen, isGoalModalOpen]);
 
     const loadMaps = async () => {
         setLoading(true);
@@ -212,9 +227,17 @@ export default function ManageMapsPage() {
         setIsMapViewerOpen(true);
         setLoadingMapImage(true);
         
-        const result = await getMapFiles(mapId);
-        if (result.data) {
-            setMapFiles(result.data.files || []);
+        const [filesResult, goalsResult] = await Promise.all([
+            getMapFiles(mapId),
+            getGoalsByMap(mapId),
+        ]);
+
+        if (filesResult.data) {
+            setMapFiles(filesResult.data.files || []);
+        }
+
+        if (goalsResult.data) {
+            setMapDestinations(prev => ({ ...prev, [mapId]: goalsResult.data! }));
         }
         
         setLoadingMapImage(false);
@@ -337,6 +360,7 @@ export default function ManageMapsPage() {
 
     useEffect(() => {
         void loadMaps();
+        getCurrentUser().then(res => { if (res.data) setUserRole(res.data.role); });
     }, []);
 
 
@@ -426,13 +450,15 @@ export default function ManageMapsPage() {
                                             >
                                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                                             </button>
-                                            <button 
-                                                className="p-2 text-txt-sec hover:text-rose-700 dark:text-rose-400 hover:bg-rose-100 dark:bg-rose-500/10 rounded-lg transition-colors" 
-                                                title={dict.dashboard.maps?.delete_map || "Delete"}
-                                                onClick={(e) => { e.stopPropagation(); handleDeleteMap(map.map_id, map.map_name); }}
-                                            >
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                            </button>
+                                            {(userRole === 'admin' || userRole === 'super_admin') && (
+                                                <button 
+                                                    className="p-2 text-txt-sec hover:text-rose-700 dark:text-rose-400 hover:bg-rose-100 dark:bg-rose-500/10 rounded-lg transition-colors" 
+                                                    title={dict.dashboard.maps?.delete_map || "Delete"}
+                                                    onClick={(e) => { e.stopPropagation(); handleDeleteMap(map.map_id, map.map_name); }}
+                                                >
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                </button>
+                                            )}
                                         </td>
                                     </tr>
                                     {expandedMapId === map.map_id && (
@@ -650,32 +676,60 @@ export default function ManageMapsPage() {
                                     <p className="text-[11px] text-txt-sec">Map ID: {viewingMapId}</p>
                                 </div>
                             </div>
-                            <button onClick={closeMapViewer} className="text-txt-sec hover:text-txt-main p-1.5 rounded-lg hover:bg-white/5 transition">
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                            </button>
+                            <div className="flex items-center gap-3">
+                                <div className="flex items-center bg-[#0f172a] border border-border-base rounded-lg p-0.5 mr-2">
+                                    <button
+                                        onClick={() => setMapViewMode('2D')}
+                                        className={`px-3 py-1 text-xs font-bold rounded-md transition ${mapViewMode === '2D' ? 'bg-blue-600 text-white shadow' : 'text-txt-sec hover:text-txt-main'}`}
+                                    >
+                                        2D Canvas
+                                    </button>
+                                    <button
+                                        onClick={() => setMapViewMode('3D')}
+                                        className={`px-3 py-1 text-xs font-bold rounded-md transition ${mapViewMode === '3D' ? 'bg-sky-500 text-slate-950 shadow' : 'text-txt-sec hover:text-txt-main'}`}
+                                    >
+                                        3D Mesh (Three.js)
+                                    </button>
+                                </div>
+                                <button onClick={closeMapViewer} className="text-txt-sec hover:text-txt-main p-1.5 rounded-lg hover:bg-white/5 transition">
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                </button>
+                            </div>
                         </div>
 
                         {/* Body */}
                         <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
-                            {/* Left: Image Viewer */}
-                            <div className="flex-1 bg-black/40 flex items-center justify-center p-6 relative min-h-[300px] border-r border-border-base">
+                            {/* Left: Image Viewer & Interactive Map Canvas / 3D Mesh */}
+                            <div className="flex-1 bg-slate-950 flex items-center justify-center p-4 relative min-h-[480px] border-r border-border-base">
                                 {loadingMapImage ? (
                                     <div className="flex flex-col items-center gap-3 text-txt-sec">
                                         <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                                        <p className="text-sm">Loading map details...</p>
+                                        <p className="text-sm">Loading map details & ROS coordinates...</p>
+                                    </div>
+                                ) : mapViewMode === '2D' ? (
+                                    <div className="w-full h-full flex flex-col items-center justify-center relative">
+                                        <MapCanvasEditor 
+                                            mapId={viewingMapId} 
+                                            imageUrl={getMapImageUrl(viewingMapId)} 
+                                            yamlUrl={getMapYamlUrl(viewingMapId)}
+                                            goals={mapDestinations[viewingMapId] || []}
+                                            userRole={userRole}
+                                            onGoalCreated={(newGoal) => {
+                                                setMapDestinations(prev => ({
+                                                    ...prev,
+                                                    [viewingMapId]: [...(prev[viewingMapId] || []), newGoal]
+                                                }));
+                                            }}
+                                        />
                                     </div>
                                 ) : (
-                                    <div className="w-full h-full flex flex-col items-center justify-center relative group">
-                                        {/* Render PGM to Canvas or fallback to Image */}
-                                        <PgmViewer 
-                                            url={getMapImageUrl(viewingMapId)} 
-                                            alt={`Map ${viewingMapId}`} 
+                                    <div className="w-full h-full flex flex-col items-center justify-center relative">
+                                        <Map3DViewer 
+                                            mapId={viewingMapId}
+                                            imageUrl={getMapImageUrl(viewingMapId)}
+                                            yamlUrl={getMapYamlUrl(viewingMapId)}
+                                            goals={mapDestinations[viewingMapId] || []}
                                         />
-                                        <div id="img-fallback" className="hidden flex-col items-center justify-center text-center p-6 border-2 border-dashed border-border-base rounded-xl bg-card-bg/50 mt-4 absolute inset-0 m-auto h-fit w-fit">
-                                            <svg className="w-12 h-12 text-txt-sec/50 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                                            <p className="text-sm font-medium text-txt-main">Image Preview Unavailable</p>
-                                            <p className="text-xs text-txt-sec mt-1 max-w-[250px]">The map file might be in a format (like PGM) that your browser cannot display directly, or the file is not accessible on the server.</p>
-                                        </div>
                                     </div>
                                 )}
                             </div>
@@ -690,7 +744,7 @@ export default function ManageMapsPage() {
                                 {loadingMapImage ? (
                                     <div className="space-y-4">
                                         {[1, 2].map(i => (
-                                            <div key={i} className="animate-pulse flex flex-col gap-2 p-3 bg-[#1e293b]/30 rounded-lg border border-border-base/50">
+                                            <div key={i} className=" flex flex-col gap-2 p-3 bg-[#1e293b]/30 rounded-lg border border-border-base/50">
                                                 <div className="h-4 bg-border-base rounded w-3/4"></div>
                                                 <div className="h-3 bg-border-base rounded w-1/2"></div>
                                             </div>

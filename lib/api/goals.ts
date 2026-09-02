@@ -86,15 +86,22 @@ export async function getGoalQueue(deviceId: number): Promise<ApiResult<GoalQueu
 /**
  * Get active goal queues (QUEUED or IN_PROGRESS)
  */
-export async function getActiveGoalQueues(): Promise<ApiResult<GoalQueue[]>> {
+export async function getActiveGoalQueues(companyId?: number): Promise<ApiResult<GoalQueue[]>> {
     try {
-        const data = await query<GoalQueue>(
-            `SELECT goal_queue_id, queue_code, map_id, device_id, requested_by, priority,
+        let sql = `SELECT goal_queue_id, queue_code, map_id, device_id, requested_by, priority,
                     retry_count, status, fail_reason, created_at, started_at, finished_at, payload
              FROM t_goal_queue
-             WHERE status IN ('QUEUED', 'IN_PROGRESS')
-             ORDER BY priority ASC`
-        );
+             WHERE status IN ('QUEUED', 'IN_PROGRESS')`;
+        const params: number[] = [];
+
+        if (companyId) {
+            sql += ` AND device_id IN (SELECT device_id FROM m_device WHERE company_id = $1)`;
+            params.push(companyId);
+        }
+
+        sql += ` ORDER BY priority ASC`;
+
+        const data = await query<GoalQueue>(sql, params.length > 0 ? params : undefined);
 
         return {
             data,
@@ -112,11 +119,17 @@ export async function getActiveGoalQueues(): Promise<ApiResult<GoalQueue[]>> {
 /**
  * Count goals by type
  */
-export async function countGoalsByType(): Promise<ApiResult<Record<string, number>>> {
+export async function countGoalsByType(companyId?: number): Promise<ApiResult<Record<string, number>>> {
     try {
-        const data = await query<{ goal_type: string }>(
-            `SELECT goal_type FROM m_goal`
-        );
+        let sql = `SELECT g.goal_type FROM m_goal g`;
+        const params: number[] = [];
+
+        if (companyId) {
+            sql += ` JOIN m_map m ON g.map_id = m.map_id WHERE m.company_id = $1`;
+            params.push(companyId);
+        }
+
+        const data = await query<{ goal_type: string }>(sql, params.length > 0 ? params : undefined);
 
         const counts: Record<string, number> = {
             TABLE: 0,

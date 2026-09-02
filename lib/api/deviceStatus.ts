@@ -39,11 +39,13 @@ const STATUS_QUERY_BASE = `
  * Get all devices with their current status
  * Uses the v_device_current_status view which joins position, battery, and state
  */
-export async function getAllDeviceStatus(): Promise<ApiResult<DeviceStatus[]>> {
+export async function getAllDeviceStatus(companyId?: number): Promise<ApiResult<DeviceStatus[]>> {
     try {
-        const data = await query<DeviceStatus>(
-            `${STATUS_QUERY_BASE} ORDER BY v.device_code ASC`
-        );
+        const sql = companyId
+            ? `${STATUS_QUERY_BASE} WHERE v.device_id IN (SELECT device_id FROM m_device WHERE company_id = $1) ORDER BY v.device_code ASC`
+            : `${STATUS_QUERY_BASE} ORDER BY v.device_code ASC`;
+        const params = companyId ? [companyId] : undefined;
+        const data = await query<DeviceStatus>(sql, params);
 
         return {
             data,
@@ -84,12 +86,17 @@ export async function getDeviceStatus(deviceId: number): Promise<ApiResult<Devic
 /**
  * Get devices by mode (e.g., all MOVING robots)
  */
-export async function getDevicesByMode(mode: string): Promise<ApiResult<DeviceStatus[]>> {
+export async function getDevicesByMode(mode: string, companyId?: number): Promise<ApiResult<DeviceStatus[]>> {
     try {
-        const data = await query<DeviceStatus>(
-            `${STATUS_QUERY_BASE} WHERE v.robot_mode = $1`,
-            [mode]
-        );
+        let sql = `${STATUS_QUERY_BASE} WHERE v.robot_mode = $1`;
+        const params: (string | number)[] = [mode];
+
+        if (companyId) {
+            sql += ` AND v.device_id IN (SELECT device_id FROM m_device WHERE company_id = $2)`;
+            params.push(companyId);
+        }
+
+        const data = await query<DeviceStatus>(sql, params);
 
         return {
             data,
@@ -107,11 +114,13 @@ export async function getDevicesByMode(mode: string): Promise<ApiResult<DeviceSt
 /**
  * Get devices with low battery (< 30%)
  */
-export async function getLowBatteryDevices(): Promise<ApiResult<DeviceStatus[]>> {
+export async function getLowBatteryDevices(companyId?: number): Promise<ApiResult<DeviceStatus[]>> {
     try {
-        const data = await query<DeviceStatus>(
-            `${STATUS_QUERY_BASE} WHERE v.battery_percent < 50`
-        );
+        const sql = companyId
+            ? `${STATUS_QUERY_BASE} WHERE v.battery_percent < 50 AND v.device_id IN (SELECT device_id FROM m_device WHERE company_id = $1)`
+            : `${STATUS_QUERY_BASE} WHERE v.battery_percent < 50`;
+        const params = companyId ? [companyId] : undefined;
+        const data = await query<DeviceStatus>(sql, params);
 
         return {
             data,

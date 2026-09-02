@@ -75,6 +75,47 @@ export async function GET(request: Request) {
         }
     }
 
+    if (action === 'daily-logs') {
+        const filterDeviceId = searchParams.get('deviceId');
+        try {
+            let sql = `SELECT date, SUM(total_commands) as total_commands, SUM(op_count) as op_count, 
+                              SUM(move_count) as move_count, SUM(error_count) as error_count
+                       FROM h_command_log_daily
+                       WHERE 1=1`;
+            const params: (string | number)[] = [];
+            if (filterDeviceId) {
+                sql += ` AND device_id = $1`;
+                params.push(parseInt(filterDeviceId, 10));
+            }
+            sql += ` GROUP BY date ORDER BY date DESC LIMIT 30`;
+            const rows = await query(sql, params);
+            return NextResponse.json({ data: rows, error: null });
+        } catch (err: unknown) {
+            return NextResponse.json({ data: null, error: (err as Error).message }, { status: 500 });
+        }
+    }
+
+    if (action === 'monthly-logs') {
+        const filterDeviceId = searchParams.get('deviceId');
+        try {
+            let sql = `SELECT to_char(date, 'YYYY-MM') as month, 
+                              SUM(total_commands) as total_commands, SUM(op_count) as op_count, 
+                              SUM(move_count) as move_count, SUM(error_count) as error_count
+                       FROM h_command_log_daily
+                       WHERE 1=1`;
+            const params: (string | number)[] = [];
+            if (filterDeviceId) {
+                sql += ` AND device_id = $1`;
+                params.push(parseInt(filterDeviceId, 10));
+            }
+            sql += ` GROUP BY to_char(date, 'YYYY-MM') ORDER BY month DESC LIMIT 12`;
+            const rows = await query(sql, params);
+            return NextResponse.json({ data: rows, error: null });
+        } catch (err: unknown) {
+            return NextResponse.json({ data: null, error: (err as Error).message }, { status: 500 });
+        }
+    }
+
     // Get activity logs with sentiment analysis
     if (action === 'activity-logs') {
         const result = await getActivityLogsFromDB(

@@ -1,19 +1,117 @@
-// Commands API - Abstraction layer for command log operations
-// Uses PostgreSQL via pg package
-
 import { query } from '@/lib/dbClient';
 import type { CommandLog, ActivityData, ApiResult } from '@/lib/types/database';
+
+export interface PaginationMeta {
+    page: number;
+    limit: number;
+    totalRows: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+}
+
+export interface PaginatedResult<T> {
+    data: T[];
+    pagination: PaginationMeta;
+    error: string | null;
+}
+
+/**
+ * Get paginated command logs with 10 items per page by default
+ */
+export async function getPaginatedCommandLogs(options: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: string;
+    deviceId?: number;
+    companyId?: number;
+}): Promise<PaginatedResult<CommandLog>> {
+    try {
+        const page = Math.max(1, options.page ?? 1);
+        const limit = Math.max(1, Math.min(100, options.limit ?? 10)); // Default 10 per page
+        const offset = (page - 1) * limit;
+
+        const whereClauses: string[] = [];
+        const params: (string | number)[] = [];
+
+        if (options.deviceId !== undefined) {
+            params.push(options.deviceId);
+            whereClauses.push(`device_id = $${params.length}`);
+        }
+
+        if (options.companyId !== undefined) {
+            params.push(options.companyId);
+            whereClauses.push(`device_id IN (SELECT device_id FROM m_device WHERE company_id = $${params.length})`);
+        }
+
+        if (options.status) {
+            params.push(options.status);
+            whereClauses.push(`status = $${params.length}`);
+        }
+
+        if (options.search) {
+            params.push(`%${options.search}%`);
+            whereClauses.push(`(command_code ILIKE $${params.length} OR status_message ILIKE $${params.length})`);
+        }
+
+        const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+
+        // Count total matching rows
+        const countSql = `SELECT COUNT(*) as count FROM h_command_log ${whereSql}`;
+        const countRows = await query<{ count: string }>(countSql, params);
+        const totalRows = parseInt(countRows[0]?.count ?? '0', 10);
+        const totalPages = Math.ceil(totalRows / limit) || 1;
+
+        // Fetch paginated rows
+        const dataSql = `
+            SELECT h_command_log_id, device_id, command_code, command_payload, 
+                   status, status_message, created_at
+            FROM h_command_log
+            ${whereSql}
+            ORDER BY created_at DESC
+            LIMIT $${params.length + 1} OFFSET $${params.length + 2}
+        `;
+        const dataParams = [...params, limit, offset];
+        const rows = await query<CommandLog>(dataSql, dataParams);
+
+        return {
+            data: rows,
+            pagination: {
+                page,
+                limit,
+                totalRows,
+                totalPages,
+                hasNextPage: page < totalPages,
+                hasPrevPage: page > 1,
+            },
+            error: null,
+        };
+    } catch (err: unknown) {
+        const error = err as Error;
+        return {
+            data: [],
+            pagination: { page: 1, limit: 10, totalRows: 0, totalPages: 1, hasNextPage: false, hasPrevPage: false },
+            error: error.message ?? 'Database error',
+        };
+    }
+}
 
 /**
  * Get command logs with optional device filter
  */
-export async function getCommandLogs(limit: number = 5, deviceId?: number): Promise<ApiResult<CommandLog[]>> {
+export async function getCommandLogs(limit: number = 5, deviceId?: number, companyId?: number): Promise<ApiResult<CommandLog[]>> {
     try {
         const params: (string | number)[] = [];
         let deviceFilter = '';
+        let companyJoin = '';
         if (deviceId !== undefined) {
-            deviceFilter = 'AND device_id = $1';
+            deviceFilter = `AND device_id = $${params.length + 1}`;
             params.push(deviceId);
+        }
+        if (companyId !== undefined) {
+            companyJoin = `AND device_id IN (SELECT device_id FROM m_device WHERE company_id = $${params.length + 1})`;
+            params.push(companyId);
         }
         
         const sql = `
@@ -24,6 +122,7 @@ export async function getCommandLogs(limit: number = 5, deviceId?: number): Prom
                 FROM h_command_log
                 WHERE created_at >= DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Jakarta')
                   ${deviceFilter}
+                  ${companyJoin}
             )
             SELECT h_command_log_id, device_id, command_code, command_payload, 
                    status, status_message, created_at
@@ -53,16 +152,21 @@ export async function getCommandLogs(limit: number = 5, deviceId?: number): Prom
  * Count actual error commands in the last 24 hours.
  * Excludes 'success' and 'SENT' (pending) statuses — only counts real failures.
  */
-export async function getErrorCount(): Promise<ApiResult<number>> {
+export async function getErrorCount(companyId?: number): Promise<ApiResult<number>> {
     try {
         const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-        const rows = await query<{ count: string }>(
-            `SELECT COUNT(*) as count 
+        let sql = `SELECT COUNT(*) as count 
              FROM h_command_log 
              WHERE status NOT IN ('success', 'SENT')
-             AND created_at >= $1`,
-            [since]
-        );
+             AND created_at >= $1`;
+        const params: (string | number)[] = [since];
+
+        if (companyId) {
+            sql += ` AND device_id IN (SELECT device_id FROM m_device WHERE company_id = $2)`;
+            params.push(companyId);
+        }
+
+        const rows = await query<{ count: string }>(sql, params);
 
         return {
             data: parseInt(rows[0]?.count ?? '0', 10),

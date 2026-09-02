@@ -9,9 +9,10 @@ import type { Robot, DeviceInfo, CreateRobotInput, UpdateRobotInput, ApiResult }
 /**
  * Get all robots with optional search filter
  */
-export async function getRobots(search?: string): Promise<ApiResult<Robot[]>> {
+export async function getRobots(search?: string, companyId?: number): Promise<ApiResult<Robot[]>> {
     try {
         const params: (string | number)[] = [];
+        let paramIdx = 1;
 
         let sql = `
             SELECT device_id, device_name, device_code, company_id, active_map_id, 
@@ -20,8 +21,13 @@ export async function getRobots(search?: string): Promise<ApiResult<Robot[]>> {
             WHERE ((device_code LIKE 'TFRB%' OR device_code LIKE 'TFUI%') OR (device_name LIKE 'TFRB%' OR device_name LIKE 'TFUI%'))
         `;
 
+        if (companyId) {
+            sql += ` AND company_id = $${paramIdx++}`;
+            params.push(companyId);
+        }
+
         if (search?.trim()) {
-            sql += ` AND (device_name ILIKE $1 OR device_code ILIKE $1)`;
+            sql += ` AND (device_name ILIKE $${paramIdx} OR device_code ILIKE $${paramIdx})`;
             params.push(`%${search.trim()}%`);
         }
 
@@ -84,17 +90,27 @@ export async function getRobotById(id: number): Promise<ApiResult<DeviceInfo>> {
 /**
  * Get recent robots (limited)
  */
-export async function getRecentRobots(limit: number = 5): Promise<ApiResult<Robot[]>> {
+export async function getRecentRobots(limit: number = 5, companyId?: number): Promise<ApiResult<Robot[]>> {
     try {
-        const data = await query<Robot>(
-            `SELECT device_id, device_name, device_code, robot_local_ip, robot_local_ssid, 
+        const params: (string | number)[] = [];
+        let paramIdx = 1;
+
+        let sql = `
+            SELECT device_id, device_name, device_code, robot_local_ip, robot_local_ssid, 
                     company_id, active_map_id, created_at, updated_at
              FROM m_device
              WHERE ((device_code LIKE 'TFRB%' OR device_code LIKE 'TFUI%') OR (device_name LIKE 'TFRB%' OR device_name LIKE 'TFUI%'))
-             ORDER BY created_at DESC
-             LIMIT $1`,
-            [limit]
-        );
+        `;
+
+        if (companyId) {
+            sql += ` AND company_id = $${paramIdx++}`;
+            params.push(companyId);
+        }
+
+        sql += ` ORDER BY created_at DESC LIMIT $${paramIdx}`;
+        params.push(limit);
+
+        const data = await query<Robot>(sql, params);
 
         // Override device_name for TFUI1 for UI display
         const transformedData = data.map(robot => ({
@@ -206,11 +222,17 @@ export async function deleteRobot(id: number): Promise<ApiResult<null>> {
 /**
  * Count total robots (only whitelisted fleet)
  */
-export async function getRobotCount(): Promise<ApiResult<number>> {
+export async function getRobotCount(companyId?: number): Promise<ApiResult<number>> {
     try {
-        const rows = await query<{ count: string }>(
-            `SELECT COUNT(*) as count FROM m_device WHERE ((device_code LIKE 'TFRB%' OR device_code LIKE 'TFUI%') OR (device_name LIKE 'TFRB%' OR device_name LIKE 'TFUI%'))`
-        );
+        let sql = `SELECT COUNT(*) as count FROM m_device WHERE ((device_code LIKE 'TFRB%' OR device_code LIKE 'TFUI%') OR (device_name LIKE 'TFRB%' OR device_name LIKE 'TFUI%'))`;
+        const params: number[] = [];
+
+        if (companyId) {
+            sql += ` AND company_id = $1`;
+            params.push(companyId);
+        }
+
+        const rows = await query<{ count: string }>(sql, params.length > 0 ? params : undefined);
 
         return {
             data: parseInt(rows[0]?.count ?? '0', 10),
