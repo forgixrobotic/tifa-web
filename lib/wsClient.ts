@@ -181,6 +181,40 @@ let wsModuleLoaded = false;
 // Also persisted to settings.json so it survives Next.js hot-reload.
 let serverJwtToken: string | null = null;
 
+/**
+ * Auto-fetch JWT token from tifa-be when not provided.
+ * Used as fallback when tifa-be was unreachable during login.
+ */
+async function fetchJwtToken(): Promise<string | null> {
+    const settings = getSettings();
+    const beUrl = process.env.TIFA_BE_URL || 'https://tifa-be.forgixrobotic.com';
+
+    // Use robot credentials from env or defaults
+    const username = process.env.ROBOT_USERNAME || 'robot';
+    const password = process.env.ROBOT_PASSWORD || 'robot123';
+
+    try {
+        const res = await fetch(`${beUrl}/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password }),
+            signal: AbortSignal.timeout(5000),
+        });
+        if (res.ok) {
+            const data = await res.json();
+            if (data.token) {
+                console.log('[WS Robot] ✅ JWT token auto-fetched from tifa-be');
+                return data.token;
+            }
+        }
+        console.warn(`[WS Robot] ⚠️ tifa-be login returned ${res.status}`);
+        return null;
+    } catch (err) {
+        console.warn('[WS Robot] ⚠️ tifa-be unreachable for auto-fetch:', (err as Error)?.message);
+        return null;
+    }
+}
+
 async function loadWebSocketModule() {
     if (wsModuleLoaded) return WebSocketClass;
     try {
@@ -532,20 +566,32 @@ function scheduleReconnect() {
     }, 5000);
 }
 
+export type WaitForConnectionResult = {
+    success: true;
+    ws: WSClass;
+} | {
+    success: false;
+    reason: 'turned_off' | 'ws_module_missing' | 'ws_connect_failed' | 'si_timeout';
+};
+
+const MAX_SI_RETRIES = 3;
+const SI_RETRY_INTERVAL_MS = 2000;
+
 /**
  * Wait for WebSocket connection + active session (up to timeoutMs).
- * Returns ws instance if ready, null if timed out.
+ * Returns { success, ws } if ready, { success, reason } if failed.
+ * Retries SI handshake up to MAX_SI_RETRIES times if session not established.
  */
-function waitForConnection(timeoutMs = 8000): Promise<WSClass | null> {
+function waitForConnection(timeoutMs = 8000): Promise<WaitForConnectionResult> {
     const settings = getSettings();
     if (!settings.isWsTurnedOn) {
         console.warn('[WS Robot] WebSocket is manually turned OFF. Cannot connect.');
-        return Promise.resolve(null);
+        return Promise.resolve({ success: false, reason: 'turned_off' });
     }
 
     // Fast path: already connected and session active
     if (wsInstance && wsInstance.readyState === 1 && isSessionActive) {
-        return Promise.resolve(wsInstance);
+        return Promise.resolve({ success: true, ws: wsInstance });
     }
 
     // Ensure we're connecting
@@ -555,15 +601,37 @@ function waitForConnection(timeoutMs = 8000): Promise<WSClass | null> {
         sendSessionIdentify();
     }
 
+    let siRetryCount = 0;
+
     return new Promise((resolve) => {
         const start = Date.now();
         const interval = setInterval(() => {
+            // Success: connected + session active
             if (wsInstance && wsInstance.readyState === 1 && isSessionActive) {
                 clearInterval(interval);
-                resolve(wsInstance);
-            } else if (Date.now() - start > timeoutMs) {
+                resolve({ success: true, ws: wsInstance });
+                return;
+            }
+
+            // Timeout: determine reason
+            if (Date.now() - start > timeoutMs) {
                 clearInterval(interval);
-                resolve(null);
+                if (!wsInstance || wsInstance.readyState !== 1) {
+                    resolve({ success: false, reason: 'ws_connect_failed' });
+                } else {
+                    resolve({ success: false, reason: 'si_timeout' });
+                }
+                return;
+            }
+
+            // Retry SI if connected but session not active
+            if (wsInstance && wsInstance.readyState === 1 && !isSessionActive && siRetryCount < MAX_SI_RETRIES) {
+                const elapsed = Date.now() - start;
+                if (elapsed > 3000 && elapsed > siRetryCount * SI_RETRY_INTERVAL_MS) {
+                    siRetryCount++;
+                    console.log(`[WS Robot] 🔄 Retrying SI handshake (${siRetryCount}/${MAX_SI_RETRIES})...`);
+                    sendSessionIdentify();
+                }
             }
         }, 100);
     });
@@ -578,17 +646,23 @@ function waitForConnection(timeoutMs = 8000): Promise<WSClass | null> {
  * Waits for connection + session before sending.
  */
 export async function sendRobotCommand(cmd: RobotCommandPayload | MappingCommandPayload): Promise<{ sent: boolean; error?: string }> {
-    const ws = await waitForConnection(8000);
+    const result = await waitForConnection(8000);
 
-    if (!ws) {
-
-        console.warn('[WS Robot] Not connected/session not ready after waiting — command will be queued in DB only');
-        return { sent: false, error: 'WebSocket not connected or session not established' };
+    if (!result.success) {
+        const reasonMap: Record<string, string> = {
+            turned_off: 'WebSocket is turned OFF — click Turn On first',
+            ws_module_missing: 'WebSocket module (ws) not installed on server',
+            ws_connect_failed: 'Cannot connect to WebSocket server — check network/server',
+            si_timeout: 'Session Identify timeout — server did not acknowledge',
+        };
+        const errorMsg = reasonMap[result.reason] || 'WebSocket not connected or session not established';
+        console.warn(`[WS Robot] Not ready: ${result.reason} — command will be queued in DB only`);
+        return { sent: false, error: errorMsg };
     }
 
     try {
         const message = JSON.stringify(cmd);
-        ws.send(message);
+        result.ws.send(message);
 
         console.log('[WS Robot] ✅ Command sent:', cmd.code, '| dest/goal:', cmd.code === 'OP' ? (cmd as RobotNavCommandPayload).data?.tray_tasks?.[0]?.goal_id : cmd.data && 'type' in cmd.data ? cmd.data.type : 'mapping');
         return { sent: true };
@@ -604,15 +678,20 @@ export async function sendRobotCommand(cmd: RobotCommandPayload | MappingCommand
  * Send a teleop (manual movement) command to the robot via WebSocket.
  */
 export async function sendTeleopCommand(cmd: TeleopCommandPayload): Promise<{ sent: boolean; error?: string }> {
-    const ws = await waitForConnection(3000);
+    const result = await waitForConnection(8000);
 
-    if (!ws) {
-        return { sent: false, error: 'WebSocket not connected or session not established' };
+    if (!result.success) {
+        const reasonMap: Record<string, string> = {
+            turned_off: 'WebSocket is turned OFF',
+            ws_connect_failed: 'Cannot connect to WebSocket server',
+            si_timeout: 'Session Identify timeout',
+        };
+        return { sent: false, error: reasonMap[result.reason] || 'WebSocket not connected or session not established' };
     }
 
     try {
         const message = JSON.stringify(cmd);
-        ws.send(message);
+        result.ws.send(message);
         return { sent: true };
     } catch (err) {
         const error = err as Error;
@@ -624,15 +703,20 @@ export async function sendTeleopCommand(cmd: TeleopCommandPayload): Promise<{ se
  * Send a teleop done command to the robot via WebSocket.
  */
 export async function sendTeleopDoneCommand(cmd: TeleopDoneCommandPayload): Promise<{ sent: boolean; error?: string }> {
-    const ws = await waitForConnection(3000);
+    const result = await waitForConnection(8000);
 
-    if (!ws) {
-        return { sent: false, error: 'WebSocket not connected or session not established' };
+    if (!result.success) {
+        const reasonMap: Record<string, string> = {
+            turned_off: 'WebSocket is turned OFF',
+            ws_connect_failed: 'Cannot connect to WebSocket server',
+            si_timeout: 'Session Identify timeout',
+        };
+        return { sent: false, error: reasonMap[result.reason] || 'WebSocket not connected or session not established' };
     }
 
     try {
         const message = JSON.stringify(cmd);
-        ws.send(message);
+        result.ws.send(message);
         return { sent: true };
     } catch (err) {
         const error = err as Error;
@@ -644,11 +728,10 @@ export async function sendTeleopDoneCommand(cmd: TeleopDoneCommandPayload): Prom
  * Send a talk on/off command to the robot via WebSocket.
  */
 export async function sendTalkCommand(cmd: TalkCommandPayload): Promise<{ sent: boolean; error?: string }> {
-    const ws = await waitForConnection(3000);
+    const result = await waitForConnection(8000);
 
-    if (!ws) {
+    if (!result.success) {
         // [MOCK LOCAL MODE] Allow UI testing even if the websocket broker is offline
-
         console.log('[WS Robot] ⚠️ WS Offline: Simulating Talk Command for local testing:', cmd.data.action);
         if (cmd.data.action === 'TALK_ON') isListening = true;
         if (cmd.data.action === 'TALK_OFF') isListening = false;
@@ -657,7 +740,7 @@ export async function sendTalkCommand(cmd: TalkCommandPayload): Promise<{ sent: 
 
     try {
         const message = JSON.stringify(cmd);
-        ws.send(message);
+        result.ws.send(message);
 
         // Optimistically update backend state so frontend polling doesn't immediately overwrite UI to false
         if (cmd.data.action === 'TALK_ON') isListening = true;
@@ -705,11 +788,20 @@ export async function manualConnectWs(jwtToken?: string | null): Promise<void> {
         return;
     }
 
-    if (jwtToken) {
-        serverJwtToken = jwtToken;
+    // Auto-fetch JWT if not provided
+    let token = jwtToken;
+    if (!token) {
+        console.log('[WS Robot] 🔑 JWT token not provided, auto-fetching from tifa-be...');
+        token = await fetchJwtToken();
+    }
+
+    if (token) {
+        serverJwtToken = token;
         getSettings(); // ensure settings loaded
-        saveSettings({ jwtToken }); // persist to file for hot-reload survival
+        saveSettings({ jwtToken: token }); // persist to file for hot-reload survival
         console.log('[WS Robot] 🔑 JWT token stored for WS authentication');
+    } else {
+        console.warn('[WS Robot] ⚠️ No JWT token available — SI will be sent without token (may fail)');
     }
 
     if (wsInstance && wsInstance.readyState === 1) {
