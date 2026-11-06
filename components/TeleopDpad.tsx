@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { sendTeleopCommand, sendTeleopDoneCommand, sendMappingCommand, sendTalkCommand } from "@/lib/client-api";
+import { sendTeleopCommand, sendTeleopDoneCommand, sendMappingCommand, sendTalkCommand, getMappingSaveAck } from "@/lib/client-api";
 import { useLanguage } from "@/components/LanguageProvider";
 import { getSessionUiId } from "@/lib/sessionId";
 import type { GroupedRobotWithStatus } from "@/lib/api";
@@ -88,6 +88,25 @@ function getVelocity(direction: Direction, speedLevel: SpeedLevel, fraction: num
 // ============================================
 // COMPONENT
 // ============================================
+
+// Wait up to MAPPING_SAVE_ACK_TIMEOUT_MS for a robot MAPPING_SAVE ACK newer than `sinceAt`
+// (ms epoch; 0 = accept any). Returns the ACK status, or 'timeout'.
+const MAPPING_SAVE_ACK_TIMEOUT_MS = 15000;
+const MAPPING_SAVE_ACK_POLL_MS = 500;
+async function waitForMappingSaveAck(sinceAt: number): Promise<'SAVED' | 'UPLOAD_FAILED' | 'timeout'> {
+    const deadline = Date.now() + MAPPING_SAVE_ACK_TIMEOUT_MS;
+    while (Date.now() < deadline) {
+        try {
+            const res = await getMappingSaveAck();
+            const ack = res?.ack;
+            if (ack && ack.at > sinceAt) return ack.status;
+        } catch {
+            // ignore poll errors, keep waiting
+        }
+        await new Promise((resolve) => setTimeout(resolve, MAPPING_SAVE_ACK_POLL_MS));
+    }
+    return 'timeout';
+}
 
 export default function TeleopDpad({ selectedGroup, onDone }: Props) {
     const { dict } = useLanguage();
@@ -195,6 +214,10 @@ export default function TeleopDpad({ selectedGroup, onDone }: Props) {
         const sanitizedMapName = mapName.trim().replace(/\s+/g, '_');
         setIsWaitingForSaveConfirm(true);
         try {
+            // Baseline so we only accept an ACK produced by THIS save (mappingSaveAck
+            // is server-side module state and may hold a stale value from a prior save).
+            const before = await getMappingSaveAck().catch(() => null);
+            const beforeAt = before?.ack?.at ?? 0;
             const result = await sendMappingCommand({
                 code: 'MAPPING_SAVE',
                 data: {
@@ -211,7 +234,16 @@ export default function TeleopDpad({ selectedGroup, onDone }: Props) {
             if (result.error) {
                 setToast({ type: "error", message: result.error });
             } else {
-                setToast({ type: "success", message: `Map "${mapName}" saved! Live mapping complete.` });
+                // Wait for robot ACK MAPPING_SAVE (SAVED | UPLOAD_FAILED) before allowing
+                // MAPPING_STOP — prevents DONE sending STOP before the upload finishes.
+                const ack = await waitForMappingSaveAck(beforeAt);
+                if (ack === 'SAVED') {
+                    setToast({ type: "success", message: `Map "${mapName}" saved! Live mapping complete.` });
+                } else if (ack === 'UPLOAD_FAILED') {
+                    setToast({ type: "error", message: "Map upload failed on robot." });
+                } else {
+                    setToast({ type: "warning", message: `Map "${mapName}" save timed out waiting for robot ACK.` });
+                }
                 setIsMapping(false);
                 setIsMappingDone(true);
                 setShowSaveMapPrompt(false);

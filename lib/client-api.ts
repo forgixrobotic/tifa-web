@@ -569,6 +569,15 @@ export async function sendMappingCommand(payload: Record<string, unknown>): Prom
 }
 
 /**
+ * Poll the last MAPPING_SAVE ACK from robot ({ status: 'SAVED' | 'UPLOAD_FAILED', at } | null).
+ * Returned via the server-side WebSocket state (/api/robot-control?action=save-ack).
+ */
+export async function getMappingSaveAck(): Promise<{ ack: { status: 'SAVED' | 'UPLOAD_FAILED'; at: number } | null }> {
+    const res = await fetch(`${BASE_URL}/robot-control?action=save-ack`);
+    return res.json();
+}
+
+/**
  * Save draft goal during Live Mapping
  */
 export async function saveDraftGoal(data: { sessionToken: string, goalName: string, goalCode?: string, goalType?: string, x: number, y: number, yaw: number, z?: number, deviceId: number }): Promise<ApiResult<Goal>> {

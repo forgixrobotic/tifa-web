@@ -173,6 +173,10 @@ let isSessionActive = false;  // tracks whether SI handshake completed
 let duplicateRetryCount = 0;  // tracks DUPLICATE_UI_ID retry attempts
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let isListening = false;      // tracks robot voice listening state
+// Last MAPPING_SAVE ACK from robot, { status: 'SAVED' | 'UPLOAD_FAILED', at: <ms epoch> }.
+// Used by /api/robot-control?action=save-ack so the frontend can wait for robot ACK
+// before sending MAPPING_STOP (see TeleopDpad handleSaveMapping/handleDone).
+let mappingSaveAck: { status: 'SAVED' | 'UPLOAD_FAILED'; at: number } | null = null;
 let WebSocketClass: typeof WSClass | null = null;
 let wsModuleLoaded = false;
 
@@ -303,6 +307,7 @@ async function connectWs() {
         wsInstance = new WS(settings.wsUrl, {
             rejectUnauthorized: false,
             family: 4,
+            handshakeTimeout: 8000,
         });
 
         wsInstance.on('open', () => {
@@ -513,6 +518,42 @@ async function connectWs() {
                             }
                         } catch { /* skip battery errors */ }
                     }
+                }
+                // Handle MAPPING_FLAG ACK dari Robot — insert m_goal dari pose yang dikirim robot
+                // Robot kirim ACK ber-bentuk {code:'ACK', data:{command_id:'MAPPING_FLAG', status:'FLAGGED', x,y,yaw,label}}.
+                // Bentuk `code:'MAPPING_FLAG'` dipertahankan untuk pertahanan echo UI.
+                else if (msg.code === 'MAPPING_FLAG' ||
+                         (msg.code === 'ACK' && msg.data?.command_id === 'MAPPING_FLAG' && msg.data?.status === 'FLAGGED')) {
+                    const robotId = msg.data?.robot_id;
+                    const { x, y, yaw } = msg.data || {};
+                    const goalName = msg.data?.goal_name ?? msg.data?.label;
+                    // Gate: hanya insert bila robot benar-benar kirim pose (echo flag dari UI tanpa x/y)
+                    if (robotId && x !== undefined && y !== undefined) {
+                        try {
+                            const deviceRows = await query<{ device_id: number; active_map_id: number | null }>(
+                                `SELECT device_id, active_map_id FROM m_device WHERE device_code = $1 LIMIT 1`,
+                                [robotId]
+                            );
+                            const device = deviceRows[0];
+                            // map_id ikut active_map_id (NULL saat map baru → orphan); MAPPING_SAVE menempelkannya
+                            const activeMapId = device?.active_map_id ?? null;
+                            await query(
+                                `INSERT INTO m_goal (map_id, goal_name, goal_type, x, y, yaw, created_at)
+                                 VALUES ($1, $2, 'CUSTOM', $3, $4, $5, NOW())`,
+                                [activeMapId, goalName ?? `Flag_${new Date().getTime()}`, x, y, yaw ?? null]
+                            );
+                            console.log(`[WS Robot] 📍 Mapping flag CUSTOM goal: ${goalName} (${x}, ${y}, ${yaw}) → map ${activeMapId ?? 'orphan'}`);
+                        } catch (err) {
+                            console.error('[WS Robot] Failed to insert mapping flag goal:', err);
+                        }
+                    }
+                }
+                // Handle MAPPING_SAVE ACK dari Robot — tanda upload peta selesai/gagal.
+                // Frontend menunggu ACK ini sebelum mengirim MAPPING_STOP.
+                else if (msg.code === 'ACK' && msg.data?.command_id === 'MAPPING_SAVE' &&
+                         (msg.data?.status === 'SAVED' || msg.data?.status === 'UPLOAD_FAILED')) {
+                    mappingSaveAck = { status: msg.data.status as 'SAVED' | 'UPLOAD_FAILED', at: Date.now() };
+                    console.log(`[WS Robot] 🗺️ Mapping save ACK: ${msg.data.status}`);
                 }
                 // Handle ACK, INIT, and DISCONNECT dari Robot
                 else if (msg.code === 'ACK' || msg.code === 'INIT' || msg.code === 'DISCONNECT' || (!msg.code && msg.origin_id && msg.message_id)) {
@@ -774,6 +815,14 @@ export function getWsUiId(): string {
  */
 export function getListeningStatus(): boolean {
     return isListening;
+}
+
+/**
+ * Get the last MAPPING_SAVE ACK status received from the robot.
+ * Returns null if no ACK received yet.
+ */
+export function getMappingSaveAck(): { status: 'SAVED' | 'UPLOAD_FAILED'; at: number } | null {
+    return mappingSaveAck;
 }
 
 /**

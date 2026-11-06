@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getTableGoals, getAllGoalsForMap, sendRobotToTable, sendRobotToMove, getActiveRobotTasks, getTaskHistory, logTeleopToCommandLog, logTeleopDoneToCommandLog, markTaskAsDone, setActiveMap, isRobotOnline } from '@/lib/api/robotControl';
-import { decodePayload, sendTeleopCommand, sendTeleopDoneCommand, getWsUiId, type TeleopCommandPayload, type TeleopDoneCommandPayload, type MappingCommandPayload, type MapSelectedCommandPayload, type TalkCommandPayload } from '@/lib/wsClient';
+import { decodePayload, sendTeleopCommand, sendTeleopDoneCommand, getWsUiId, getMappingSaveAck, type TeleopCommandPayload, type TeleopDoneCommandPayload, type MappingCommandPayload, type MapSelectedCommandPayload, type TalkCommandPayload } from '@/lib/wsClient';
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
@@ -37,6 +37,11 @@ export async function GET(request: Request) {
     if (action === 'talk-status') {
         const { getListeningStatus } = await import('@/lib/wsClient');
         return NextResponse.json({ listening: getListeningStatus() });
+    }
+
+    // Get last MAPPING_SAVE ACK from robot (frontend waits on this before MAPPING_STOP)
+    if (action === 'save-ack') {
+        return NextResponse.json({ ack: getMappingSaveAck() });
     }
 
     return NextResponse.json({ error: 'Invalid action or missing parameters' }, { status: 400 });
@@ -169,9 +174,12 @@ export async function POST(request: Request) {
             try {
                 const { query } = await import('@/lib/dbClient');
                 if (payload.code === 'MAPPING_FLAG') {
-                    // MAPPING_FLAG is no longer inserted into m_goal here by tifa-web.
-                    // The robot backend (tifa-be) will insert the accurate coordinates 
-                    // extracted from the map's YAML file during map upload as 'CUSTOM' goals.
+                    // MAPPING_FLAG is NOT inserted into m_goal here. This route is the OUT
+                    // direction (tifa-web → robot) and only relays goal_name. The pose now
+                    // comes back via the robot's MAPPING_FLAG ACK, consumed in lib/wsClient.ts
+                    // → insert m_goal (goal_type='CUSTOM') keyed to m_device.active_map_id.
+                    // Production-accurate path remains POST /api/maps/upload/full →
+                    // saveMapMetadata (m_goal CUSTOM from YAML).
                 } else if (payload.code === 'MAPPING_SAVE') {
                     // 1. Insert into m_map
                     const mapName = payload.data.map_name || `Map_${new Date().getTime()}`;
